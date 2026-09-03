@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
 import { NavMenu } from "@/components/nav-menu";
 import { NavigationSheet } from "@/components/navigation-sheet";
+import Link from "next/link";
 
 const Navbar = () => {
   return (
@@ -16,7 +17,9 @@ const Navbar = () => {
 
         <div className="flex items-center gap-3">
           <Button className="hidden sm:inline-flex" variant="outline">
-            Se connecter
+            <Link href={'/admin/residents'}>
+              Se connecter
+            </Link>
           </Button>
 
           {/* Mobile Menu */}
