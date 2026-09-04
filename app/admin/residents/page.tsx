@@ -1,4 +1,5 @@
 import ResidentDialog from "@/components/resident-dialog";
+import { Button } from "@/components/ui/button";
 
 import {
   Table,
@@ -10,6 +11,8 @@ import {
 } from "@/components/ui/table";
 
 import { createClient } from "@/lib/client";
+import { EyeIcon } from "lucide-react";
+import Link from "next/link";
 
 const supabase = createClient();
 
@@ -77,10 +80,13 @@ export default async function AdminResidentsPage() {
                   Bât. {resident.building}
                 </TableCell>
 
-                <TableCell className="text-right">
+                <TableCell className="flex items-center justify-end gap-2">
                   <ResidentDialog
                     resident={resident}
                   />
+                  <Link href={`/admin/residents/${resident.id}`}>
+                    <Button><EyeIcon /></Button>
+                  </Link>
                 </TableCell>
               </TableRow>
             ))}

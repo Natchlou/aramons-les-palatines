@@ -1,42 +1,49 @@
 // types.ts
-export type Frequency = 'daily' | 'weekly' | 'monthly';
+export interface ResidentConstraint {
+  horaires_menages?: string; // Ex: "10H00", "14H00 OU 12H"
+  jours_menages?: string;   // Ex: "PAS LE VENDREDI", "MARDI ET VENDREDI", "1X1H30 + 3X1H"
+  services_supp?: string;   // Ex: "POUBELLES", "LIT/POUBELLES/JOURNAL"
+  prelevement?: number;     // Ex: 5, 10
+  envoi_facture?: string;   // Ex: "MAILS", "DUPLICATA + MAILS"
+  nombre_menages?: string;  // Ex: "2 NF", "4"
+}
 
 export interface Resident {
-  id: number;
-  name: string;
-  apartment: string;
-  building: 1 | 2;
-  frequency: Frequency;
-  dayOfWeek?: number;
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  room?: string;
+  building?: string;
+  frequency?: 'daily' | 'weekly' | 'monthly';
+  dayOfWeek?: number; // 1 (Lundi) à 5 (Vendredi)
   dayOfMonth?: number;
-  preferredStart?: string;
-  preferredEnd?: string;
-  allowedDays?: number[];
-  forbiddenDays?: number[];
+  preferredStart?: string; // Ex: "10:00"
+  preferredEnd?: string;   // Ex: "12:00"
   priority?: number;
-  maxWeeklySlots?: number;
+  allowedDays?: number[]; // Jours autorisés (1-5)
+  forbiddenDays?: number[]; // Jours interdits (1-5)
   isAbsent?: boolean;
+  constraints?: ResidentConstraint; // Contraintes depuis la table `constraintes`
 }
 
 export interface Agent {
   id: number;
   name: string;
-  workingDays?: number[];
-  maxSlotsPerDay?: number;
-  preferredStart?: string;
+  workingDays?: number[]; // Jours de travail (1-5)
+  maxSlotsPerDay?: number; // Nombre max de créneaux par jour
   isAbsent?: boolean;
 }
 
 export interface TimeSlot {
-  start: string;
-  end: string;
+  start: string; // Ex: "10:00"
+  end: string;   // Ex: "11:30"
 }
 
 export interface ScheduledTask {
   id: string;
-  residentId: number;
+  residentId: string;
   agentId: number;
-  date: string;
+  date: string; // Format: YYYY-MM-DD
   startTime: string;
   endTime: string;
 }

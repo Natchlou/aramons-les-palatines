@@ -1,0 +1,429 @@
+{
+  "residents": {
+    "101": {
+      "nom": "BENAVENTE",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "prelevement": 5
+      }
+    },
+    "102": {
+      "nom": "DAOUT",
+      "contraintes": {}
+    },
+    "103": {
+      "nom": "FAUVET",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "envoi_facture": "MAILS",
+        "prelevement": 5
+      }
+    },
+    "104": {
+      "nom": "ROY",
+      "contraintes": {
+        "nombre_menages": 4,
+        "horaires_menages": "TOUTES LES SEMAINES",
+        "envoi_facture": "MAILS"
+      }
+    },
+    "105": {
+      "nom": "BOUAZIZ",
+      "contraintes": {
+        "nombre_menages": 4,
+        "horaires_menages": "10H00",
+        "jours_menages": "1X1H30 + 3X1H",
+        "services_supp": "POUBELLES"
+      }
+    },
+    "106": {
+      "nom": "SOUBEYRAN",
+      "contraintes": {
+        "nombre_menages": 1,
+        "horaires_menages": "10H00",
+        "jours_menages": "PAS LE VENDREDI",
+        "envoi_facture": "MAILS",
+        "prelevement": 5
+      }
+    },
+    "107": {
+      "nom": "REMI",
+      "contraintes": {
+        "nombre_menages": 1,
+        "prelevement": 5
+      }
+    },
+    "108": {
+      "nom": "ROYET",
+      "contraintes": {
+        "nombre_menages": 1,
+        "horaires_menages": "10H00",
+        "prelevement": 5
+      }
+    },
+    "109": {
+      "nom": "DAMIAT",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "envoi_facture": "MAILS",
+        "prelevement": 10
+      }
+    },
+    "110": {
+      "nom": "BOURDEIX",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "prelevement": 5
+      }
+    },
+    "111": {
+      "nom": "MME RODRIGUEZ",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "horaires_menages": "10H OU 12H"
+      }
+    },
+    "112": {
+      "nom": "BOVAGNE",
+      "contraintes": {
+        "nombre_menages": 1,
+        "horaires_menages": "10H00",
+        "prelevement": 10
+      }
+    },
+    "113": {
+      "nom": "BERCHTOLD",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "horaires_menages": "14H00 OU 12H",
+        "prelevement": 5
+      }
+    },
+    "114": {
+      "nom": "MOLLET",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "prelevement": 5
+      }
+    },
+    "115": {
+      "nom": "SEGUI",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "envoi_facture": "MAILS",
+        "prelevement": 5
+      }
+    },
+    "116": {
+      "nom": "BOUCHARD",
+      "contraintes": {
+        "nombre_menages": 1,
+        "jours_menages": "MERCREDI",
+        "envoi_facture": "MAILS"
+      }
+    },
+    "117": {
+      "nom": "CARDELL",
+      "contraintes": {
+        "nombre_menages": "8 NF",
+        "jours_menages": "MARDI ET VENDREDI",
+        "services_supp": "LIT/POUBELLES/JOURNAL",
+        "prelevement": 5
+      }
+    },
+    "118": {
+      "nom": "PORTALES",
+      "contraintes": {
+        "nombre_menages": "4 NF",
+        "horaires_menages": "10H00",
+        "jours_menages": "LUNDI 10H00",
+        "services_supp": "LESSIVES",
+        "envoi_facture": "MAILS",
+        "prelevement": 5
+      }
+    },
+    "119": {
+      "nom": "CANTO",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "prelevement": 10
+      }
+    },
+    "120": {
+      "nom": "CAPITAINE",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "services_supp": "LESSIVES",
+        "prelevement": 5
+      }
+    },
+    "121": {
+      "nom": "COJAN",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "prelevement": 5
+      }
+    },
+    "122": {
+      "nom": "CLAVEL",
+      "contraintes": {
+        "nombre_menages": 2,
+        "horaires_menages": "10H00",
+        "prelevement": 5
+      }
+    },
+    "123": {
+      "nom": "CORTES",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "prelevement": 5
+      }
+    },
+    "124": {
+      "nom": "JOUHAUD",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "jours_menages": "PAS LE VENDREDI / MARDI",
+        "prelevement": 5
+      }
+    },
+    "125": {
+      "nom": "BOURGUE",
+      "contraintes": {
+        "nombre_menages": "2NF",
+        "prelevement": 12
+      }
+    },
+    "126": {
+      "nom": "JOUET",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "envoi_facture": "MAILS"
+      }
+    },
+    "127": {
+      "nom": "LETOREY",
+      "contraintes": {
+        "nombre_menages": 4,
+        "horaires_menages": "10H00",
+        "prelevement": 5
+      }
+    },
+    "128": {
+      "nom": "SANCHEZ",
+      "contraintes": {
+        "nombre_menages": 1,
+        "prelevement": 5
+      }
+    },
+    "129": {
+      "nom": "ROY",
+      "contraintes": {
+        "nombre_menages": 1,
+        "horaires_menages": "9H30",
+        "jours_menages": "MARDI",
+        "services_supp": "LIT TOUS LES LUNDIS"
+      }
+    },
+    "201": {
+      "nom": "GERMOND",
+      "contraintes": {
+        "nombre_menages": 2,
+        "horaires_menages": "14H00",
+        "jours_menages": "PAS LE VENDREDI",
+        "prelevement": 5
+      }
+    },
+    "202": {
+      "nom": "GUILLERME",
+      "contraintes": {
+        "nombre_menages": 4,
+        "envoi_facture": "MAILS",
+        "prelevement": 5
+      }
+    },
+    "203": {
+      "nom": "JULY",
+      "contraintes": {
+        "nombre_menages": 1,
+        "horaires_menages": "10H00"
+      }
+    },
+    "204": {
+      "nom": "APARICIO",
+      "contraintes": {
+        "nombre_menages": 1,
+        "horaires_menages": "10H00",
+        "prelevement": 5
+      }
+    },
+    "205": {
+      "nom": "SANGES",
+      "contraintes": {
+        "nombre_menages": 1,
+        "horaires_menages": "10H00",
+        "prelevement": 10
+      }
+    },
+    "206": {
+      "nom": "PASSET",
+      "contraintes": {
+        "nombre_menages": 1,
+        "prelevement": 5
+      }
+    },
+    "207": {
+      "nom": "AUDIGIER",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "horaires_menages": "14H00"
+      }
+    },
+    "208": {
+      "nom": "CATTARINA",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "horaires_menages": "10H00",
+        "prelevement": 5
+      }
+    },
+    "209": {
+      "nom": "CUQ",
+      "contraintes": {
+        "nombre_menages": "2NF",
+        "prelevement": 5
+      }
+    },
+    "210": {
+      "nom": "TORRENTE",
+      "contraintes": {
+        "nombre_menages": 4,
+        "horaires_menages": "10H00",
+        "prelevement": 5
+      }
+    },
+    "211": {
+      "nom": "SAUQUET",
+      "contraintes": {
+        "nombre_menages": "2NF",
+        "prelevement": 5
+      }
+    },
+    "212": {
+      "nom": "REVON",
+      "contraintes": {
+        "nombre_menages": 0,
+        "envoi_facture": "MAILS",
+        "prelevement": 5
+      }
+    },
+    "213": {
+      "nom": "HERPIN",
+      "contraintes": {
+        "nombre_menages": 2
+      }
+    },
+    "214": {
+      "nom": "POULET",
+      "contraintes": {
+        "nombre_menages": 2,
+        "horaires_menages": "10H00",
+        "jours_menages": "TOUS LES 15 JOURS"
+      }
+    },
+    "215": {
+      "nom": "REBOUSSIN",
+      "contraintes": {
+        "nombre_menages": 4,
+        "jours_menages": "1X1H30 + 3X1H",
+        "envoi_facture": "MAILS",
+        "prelevement": 10
+      }
+    },
+    "216/217": {
+      "nom": "CANTALOUBE",
+      "contraintes": {
+        "nombre_menages": "2NF",
+        "jours_menages": "PAS LE MARDI",
+        "prelevement": 10
+      }
+    },
+    "218": {
+      "nom": "VEROLIN",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "envoi_facture": "MAILS",
+        "prelevement": 10
+      }
+    },
+    "219": {
+      "nom": "ASSENAT",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "envoi_facture": "MAILS",
+        "prelevement": 10
+      }
+    },
+    "220": {
+      "nom": "MURADOR",
+      "contraintes": {
+        "nombre_menages": "2NF",
+        "prelevement": 5
+      }
+    },
+    "221": {
+      "nom": "GOUGET",
+      "contraintes": {
+        "nombre_menages": "2NF",
+        "prelevement": 10
+      }
+    },
+    "222": {
+      "nom": "COUSIN",
+      "contraintes": {
+        "nombre_menages": 1,
+        "prelevement": 5
+      }
+    },
+    "223": {
+      "nom": "SAVY",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "prelevement": 5
+      }
+    },
+    "224": {
+      "nom": "GARCIA M",
+      "contraintes": {}
+    },
+    "225": {
+      "nom": "LEGRAND",
+      "contraintes": {
+        "nombre_menages": 1,
+        "horaires_menages": "14H",
+        "envoi_facture": "DUPLICATA + MAILS"
+      }
+    },
+    "226": {
+      "nom": "RODRIGUEZ",
+      "contraintes": {
+        "nombre_menages": 4
+      }
+    },
+    "227": {
+      "nom": "LEFEBVRE",
+      "contraintes": {
+        "nombre_menages": "2 NF",
+        "prelevement": 5
+      }
+    },
+    "CHRISTELLE": {
+      "nom": "CHRISTELLE",
+      "contraintes": {}
+    },
+    "MANOUSHKA": {
+      "nom": "MANOUSHKA",
+      "contraintes": {}
+    }
+  }
+}
