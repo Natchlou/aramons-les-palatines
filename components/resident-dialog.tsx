@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
+import { PencilIcon } from "lucide-react";
 
 type Resident = Tables<"residents">;
 
@@ -33,8 +34,8 @@ export default function ResidentDialog({
     <Dialog>
       <DialogTrigger
         render={
-          <Button variant={isEditing ? "outline" : "default"}>
-            {isEditing ? "Modifier" : "Ajouter un résident"}
+          <Button variant={isEditing ? "outline" : "default"} size={isEditing ? 'icon': 'default'}>
+            {isEditing ? <PencilIcon/> : "Ajouter un résident"}
           </Button>
         }
       />

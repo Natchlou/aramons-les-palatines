@@ -1,22 +1,14 @@
 import ResidentDialog from "@/components/resident-dialog";
-import { Button } from "@/components/ui/button";
+import ResidentsTable from "@/components/residents-table";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-
+import { Database } from "@/database.types";
 import { createClient } from "@/lib/client";
-import { EyeIcon } from "lucide-react";
-import Link from "next/link";
 
-const supabase = createClient();
+type ResidentRow = Database['public']['Tables']['residents']['Row'];
 
 export default async function AdminResidentsPage() {
+  const supabase = createClient();
+
   const { data, error } = await supabase
     .from("residents")
     .select("*");
@@ -48,50 +40,7 @@ export default async function AdminResidentsPage() {
           </p>
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nom</TableHead>
-              <TableHead>Prénom</TableHead>
-              <TableHead>Appartement</TableHead>
-              <TableHead>Bâtiment</TableHead>
-              <TableHead className="text-right">
-                Actions
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {data.map((resident) => (
-              <TableRow key={resident.id}>
-                <TableCell className="font-medium">
-                  {resident.last_name}
-                </TableCell>
-
-                <TableCell>
-                  {resident.first_name}
-                </TableCell>
-
-                <TableCell>
-                  Apt. {resident.room}
-                </TableCell>
-
-                <TableCell>
-                  Bât. {resident.building}
-                </TableCell>
-
-                <TableCell className="flex items-center justify-end gap-2">
-                  <ResidentDialog
-                    resident={resident}
-                  />
-                  <Link href={`/admin/residents/${resident.id}`}>
-                    <Button><EyeIcon /></Button>
-                  </Link>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <ResidentsTable residents={data as ResidentRow[]} />
       )}
     </div>
   );

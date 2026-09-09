@@ -13,6 +13,7 @@ import Link from "next/link"
 // Types
 type ResidentRow = Database['public']['Tables']['residents']['Row'];
 type ConstraintRow = Database['public']['Tables']['constraintes']['Row'];
+type RecentMenageRow = Database['public']['Tables']['recents_menages']['Row'];
 
 export default async function AdminResidentShow({
     params,
@@ -27,37 +28,36 @@ export default async function AdminResidentShow({
         .from("residents")
         .select("*")
         .eq('id', uuid)
-        .single();
+        .single<ResidentRow>();
 
     const { data: constraintes, error: errorConstraintes } = await supabase
         .from('constraintes')
         .select('*')
         .eq('resident_id', uuid)
-        .single<ConstraintRow>();
+        .maybeSingle<ConstraintRow>();
 
     const { data: recents_menages, error: errorRecentsMenage } = await supabase
         .from('recents_menages')
         .select('*')
-        .eq('resident_id', uuid)
-        .select();
+        .eq('resident_id', uuid);
 
     if (errorResident || errorConstraintes || errorRecentsMenage) {
         return (
             <div className="flex flex-1 items-center justify-center">
                 <p className="text-destructive">
-                    Une erreur est survenue : {errorResident?.message}
+                    Une erreur est survenue : {errorResident?.message} {errorConstraintes?.message} {errorRecentsMenage?.message}
                 </p>
             </div>
         );
     }
 
     function splitCamelCaseArray(daysArray: string[]): string[] {
-  return daysArray.flatMap(dayString =>
-    dayString.split(/(?=[A-Z])/).map(day =>
-      day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()
-    )
-  );
-}
+        return daysArray.flatMap(dayString =>
+            dayString.split(/(?=[A-Z])/).map(day =>
+                day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()
+            )
+        );
+    }
 
     return (
         <div className="mx-auto flex min-w-7xl flex-1 flex-col px-4 py-8 font-sans gap-6">
@@ -84,7 +84,7 @@ export default async function AdminResidentShow({
                 {/* ===== Colonne principale ===== */}
                 <div className="flex flex-col gap-4">
 
-                    {constraintes.disallow_days || constraintes.schedule_hours ? <Alert variant={'destructive'}>
+                    {constraintes && (constraintes.disallow_days || constraintes.schedule_hours) ? <Alert variant={'destructive'}>
                         <AlertTitle>Attention ce résident à des contraintes de ménages</AlertTitle>
                         <AlertDescription>
                             {constraintes.disallow_days ? <p>Jour de ménage : {splitCamelCaseArray(constraintes.disallow_days)}</p> : ''}
@@ -98,40 +98,36 @@ export default async function AdminResidentShow({
                             <CardTitle>Ménages récents</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead>Heure</TableHead>
-                                        <TableHead>Statut</TableHead>
-                                        <TableHead>Payé ?</TableHead>
-                                        <TableHead className="text-right">
-                                            Actions
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-
-                                <TableBody>
-                                    {recents_menages.map((item) => (
-                                        <TableRow key={item.id}>
-                                            <TableCell className="font-medium">
-                                                {Intl.DateTimeFormat('fr', { dateStyle: 'full' }).format(new Date(item.date))}
-                                            </TableCell>
-                                            <TableCell>
-                                                {Intl.DateTimeFormat('fr', { hour: 'numeric', minute: 'numeric', hour12: false }).format(new Date(`1970-01-01T${item.heure}`))}
-                                            </TableCell>
-                                            <TableCell>
-                                                {item.status}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant={item.is_paid ? 'default' : 'destructive'}>{item.is_paid ? 'Oui' : 'Non'}</Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                            </TableCell>
+                            {recents_menages.length > 0 ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Date</TableHead>
+                                            <TableHead>Heure</TableHead>
+                                            <TableHead className="text-right">
+                                                Actions
+                                            </TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+
+                                    <TableBody>
+                                        {recents_menages.map((item: RecentMenageRow) => (
+                                            <TableRow key={item.id}>
+                                                <TableCell className="font-medium">
+                                                    {Intl.DateTimeFormat('fr', { dateStyle: 'full' }).format(new Date(item.date as string))}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {Intl.DateTimeFormat('fr', { hour: 'numeric', minute: 'numeric', hour12: false }).format(new Date(`1970-01-01T${item.heure}`))}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Aucun ménage récent enregistré.</p>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
@@ -148,9 +144,9 @@ export default async function AdminResidentShow({
                             <DataList data={[
                                 { title: 'Appartement', value: resident.room },
                                 { title: 'Bâtiment', value: resident.building },
-                                { title: 'Facture', value: <Badge>{constraintes.bill ?? 'À définir'}</Badge> },
-                                { title: 'Prélèvement', value: `Tous les ${constraintes.debiting} du mois` },
-                                { title: 'Nombre de ménage', value: constraintes.per_week },
+                                { title: 'Facture', value: <Badge>{constraintes?.bill ?? 'À définir'}</Badge> },
+                                { title: 'Prélèvement', value: `Tous les ${constraintes?.debiting ?? '(à définir)'} du mois` },
+                                { title: 'Nombre de ménage', value: constraintes?.per_month ?? 'À définir' },
                             ]} />
                         </CardContent>
                     </Card>
