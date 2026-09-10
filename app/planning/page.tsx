@@ -20,7 +20,7 @@ export default async function Planning() {
         <h1 className="text-4xl font-bold mb-2">Votre planning en 1 click</h1>
       </div>
       <main>
-        <PlanningMonthly data={planning[0]}/>
+        <PlanningMonthly data={planning ? planning[0] : []}/>
       </main>
     </div>
   );

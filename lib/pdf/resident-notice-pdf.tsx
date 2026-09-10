@@ -46,25 +46,25 @@ function NoticePage({ notice }: { notice: ResidentNotice }) {
           <Image src={logoBase64} style={tw("w-full h-40")} />
         </View>
 
-        <Text style={tw("text-6xl font-bold underline text-center uppercase mb-12")}>
+        <Text style={tw("text-7xl font-bold underline text-center uppercase mb-12")}>
           Votre ménage
         </Text>
 
         <View style={tw("flex-1 flex flex-col items-center justify-center gap-8 w-full")}>
-          <Text style={tw("text-3xl text-center")}>
+          <Text style={tw("text-6xl text-center")}>
             Nom : <Text style={tw("font-bold")}>{notice.name}</Text>
           </Text>
 
-          <Text style={tw("text-3xl text-center")}>
+          <Text style={tw("text-6xl text-center")}>
             Appartement :{" "}
             <Text style={tw("font-bold")}>{notice.apartment}</Text>
           </Text>
 
-          <Text style={tw("text-3xl text-center")}>
+          <Text style={tw("text-6xl text-center")}>
             Bâtiment : <Text style={tw("font-bold")}>{notice.building}</Text>
           </Text>
 
-          <View style={tw("font-bold border-2 p-6 flex flex-col items-center mt-6 w-4/5")}>
+          <View style={tw("font-bold border-2 p-6 flex flex-col items-center justify-center mt-6 w-4/5")}>
             <Text style={tw("text-4xl")}>{notice.day}</Text>
             <Text style={tw("text-4xl")}>à {notice.time}</Text>
           </View>

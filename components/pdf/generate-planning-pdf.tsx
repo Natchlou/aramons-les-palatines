@@ -3,12 +3,12 @@
 import { useState } from "react";
 
 import type {
-  CleaningPlanningMonth,
   CleaningPlanningMode,
 } from "@/lib/pdf/cleaning-planning-pdf";
+import { Planning } from "../planning";
 
 type GeneratePlanningPdfProps = {
-  planning: CleaningPlanningMonth;
+  planning: Planning;
   mode?: CleaningPlanningMode;
 };
 
@@ -74,7 +74,7 @@ export default function GeneratePlanningPdf({
     <button
       type="button"
       onClick={generatePdf}
-      disabled={loading || planning.weeks.length === 0}
+      disabled={loading || planning.data.weeks.length === 0}
       className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:pointer-events-none disabled:opacity-50"
     >
       {loading ? "Génération du PDF..." : "Exporter en PDF"}
