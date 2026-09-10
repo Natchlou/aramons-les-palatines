@@ -14,13 +14,13 @@ export type CleaningTask = {
   room?: string;
   building?: string;
   type?:
-    | "menage"
-    | "hall"
-    | "plonge"
-    | "pause"
-    | "lavettes"
-    | "bureaux"
-    | "salle_animation";
+  | "menage"
+  | "hall"
+  | "plonge"
+  | "pause"
+  | "lavettes"
+  | "bureaux"
+  | "salle_animation";
 };
 
 export type DayAbsenceStatus = {
@@ -178,12 +178,11 @@ function WeekTable({
         {week.days.map((day, index) => (
           <View
             style={tw(
-              `flex flex-row ${rowMinHeight} border-t border-[${c.border}] ${
-                day.absence
-                  ? `bg-[${c.destructiveBg}]`
-                  : index % 2 === 1
-                    ? `bg-[${c.muted}]`
-                    : ""
+              `flex flex-row ${rowMinHeight} border-t border-[${c.border}] ${day.absence
+                ? `bg-[${c.destructiveBg}]`
+                : index % 2 === 1
+                  ? `bg-[${c.muted}]`
+                  : ""
               }`,
             )}
             key={`${day.date}-${index}`}

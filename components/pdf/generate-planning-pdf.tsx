@@ -30,7 +30,7 @@ export default function GeneratePlanningPdf({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planning,
+          planningId: 15,
           mode,
         }),
       });

@@ -14,6 +14,8 @@ export default async function Test1Page() {
         return <div>Erreur</div>
     }
 
+    console.log(planning)
+
     function extractAllTasks(weeks: Details['weeks']): ResidentNotice[] {
         const flatList: ResidentNotice[] = [];
 
