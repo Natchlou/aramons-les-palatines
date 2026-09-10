@@ -2,12 +2,12 @@ import ResidentDialog from "@/components/resident-dialog";
 import ResidentsTable from "@/components/residents-table";
 
 import { Database } from "@/database.types";
-import { createClient } from "@/lib/client";
+import { createClient } from "@/lib/server";
 
 type ResidentRow = Database['public']['Tables']['residents']['Row'];
 
 export default async function AdminResidentsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("residents")

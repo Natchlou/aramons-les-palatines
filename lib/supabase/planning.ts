@@ -1,11 +1,11 @@
 // src/lib/supabase/planning.ts
 
-import { createClient } from '@/lib/client';
+import { createClient } from '@/lib/server';
 import { PlanningResult, Resident } from '../types';
 
 // Récupère les résidents avec leurs contraintes
 export async function fetchResidentsWithConstraints(residentIds?: string[]): Promise<Resident[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 1. Récupérer les résidents
   let query = supabase.from('residents').select('*');
@@ -53,7 +53,7 @@ export async function fetchResidentsWithConstraints(residentIds?: string[]): Pro
 
 // Sauvegarde le planning dans la table `planning`
 export async function savePlanning(planning: PlanningResult, date: Date): Promise<number | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Formater la date au format YYYY-MM-DD
   const formattedDate = date.toISOString().split('T')[0];

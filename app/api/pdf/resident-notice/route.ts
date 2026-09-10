@@ -1,37 +1,52 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 import { createElement, type ReactElement } from "react";
+import { z } from "zod";
 
 import ResidentNoticePdf, {
   type ResidentNotice,
 } from "@/lib/pdf/resident-notice-pdf";
+import { createClient } from "@/lib/server";
 
 export const runtime = "nodejs";
 
-type RequestBody = {
-  notices: ResidentNotice[];
-};
+// Validation schema for ResidentNotice
+const residentNoticeSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200, "Name too long"),
+  apartment: z.string().min(1, "Apartment is required").max(20, "Apartment too long"),
+  building: z.string().min(1, "Building is required").max(20, "Building too long"),
+  day: z.string().min(1, "Day is required").max(50, "Day too long"),
+  time: z.string().min(1, "Time is required").max(20, "Time too long"),
+});
+
+// Validation schema for request body
+const requestBodySchema = z.object({
+  notices: z.array(residentNoticeSchema).min(1, "At least one notice is required"),
+});
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as RequestBody;
-
-    if (!Array.isArray(body.notices)) {
+    // Check authentication
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.getClaims();
+    
+    if (error || !data?.claims) {
       return NextResponse.json(
-        { error: "Les avis sont invalides." },
-        { status: 400 },
+        { error: "Unauthorized" },
+        { status: 401 },
       );
     }
-
-    if (body.notices.length === 0) {
-      return NextResponse.json(
-        { error: "Aucun avis à générer." },
-        { status: 400 },
-      );
-    }
+    
+    const body = await request.json();
+    
+    // Validate request body
+    const validatedData = requestBodySchema.parse(body);
+    
+    // Type assertion for our validated data
+    const notices = validatedData.notices as ResidentNotice[];
 
     const document = createElement(ResidentNoticePdf, {
-      notices: body.notices,
+      notices: notices,
     }) as unknown as ReactElement<DocumentProps>;
 
     const pdf = await renderToBuffer(document);

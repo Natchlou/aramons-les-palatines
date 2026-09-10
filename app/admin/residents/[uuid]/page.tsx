@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { Database } from "@/database.types"
-import { createClient } from "@/lib/client"
+import { createClient } from "@/lib/server"
 import { ArrowLeftIcon } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -22,7 +22,7 @@ export default async function AdminResidentShow({
 }) {
     const { uuid } = await params
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     const { data: resident, error: errorResident } = await supabase
         .from("residents")
