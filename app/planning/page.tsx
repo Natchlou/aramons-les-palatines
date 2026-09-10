@@ -16,15 +16,12 @@ export default async function Planning() {
   }
   return (
     <div className="flex flex-col flex-1 min-w-7xl mx-auto px-4 py-8 font-sans dark:bg-black">
-      <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-bold mb-2">Votre planning en 1 click</h1>
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">Votre planning en quelques clicks</h1>
-        </div>
-        <main>
-          <PlanningMonthly data={planning ? planning[0] : []} />
-        </main>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold">Votre planning en quelques clicks</h1>
       </div>
+      <main>
+        <PlanningMonthly data={planning ? planning[0] : []} />
+      </main>
     </div>
   );
 }
