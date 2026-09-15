@@ -1,28 +1,29 @@
-"use client";
+"use client"
 
-import { useState } from "react";
+import * as React from "react"
 
-import type {
-  CleaningPlanningMode,
-} from "@/lib/pdf/cleaning-planning-pdf";
-import { Planning } from "../planning";
+import { Button } from "@/components/ui/button"
 
-type GeneratePlanningPdfProps = {
-  planning: Planning;
-  mode?: CleaningPlanningMode;
-};
+interface GeneratePlanningPdfProps {
+  planningId: number
+  agent: string
+  disabled?: boolean
+}
 
 export default function GeneratePlanningPdf({
-  planning,
-  mode = "weekly",
+  planningId,
+  agent,
+  disabled = false,
 }: GeneratePlanningPdfProps) {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = React.useState(false)
 
-  async function generatePdf() {
-    const previewWindow = window.open("", "_blank");
+  async function handleGenerate() {
+    if (loading || disabled) {
+      return
+    }
 
     try {
-      setLoading(true);
+      setLoading(true)
 
       const response = await fetch("/api/pdf", {
         method: "POST",
@@ -30,54 +31,66 @@ export default function GeneratePlanningPdf({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planningId: 15,
-          mode,
+          planningId,
+          agent,
         }),
-      });
+      })
 
       if (!response.ok) {
-        const data = await response.json().catch(() => null);
+        let message = "Impossible de générer le PDF."
 
-        throw new Error(
-          data?.error ?? "Impossible de générer le PDF.",
-        );
+        try {
+          const data = await response.json()
+
+          if (typeof data?.error === "string") {
+            message = data.error
+          }
+        } catch {
+          // La réponse n'est probablement pas du JSON.
+        }
+
+        throw new Error(message)
       }
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
 
-      if (previewWindow) {
-        previewWindow.location.href = url;
-      } else {
-        window.open(url, "_blank");
-      }
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `planning-menage-${agent
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-")}.pdf`
 
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 60_000);
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+
+      URL.revokeObjectURL(url)
     } catch (error) {
-      previewWindow?.close();
+      console.error(
+        "Erreur lors de la génération du PDF :",
+        error,
+      )
 
-      console.error(error);
-
-      alert(
+      window.alert(
         error instanceof Error
           ? error.message
           : "Impossible de générer le PDF.",
-      );
+      )
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
   return (
-    <button
+    <Button
       type="button"
-      onClick={generatePdf}
-      disabled={loading || planning.data.weeks.length === 0}
-      className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:pointer-events-none disabled:opacity-50"
+      variant="outline"
+      onClick={handleGenerate}
+      disabled={disabled || loading}
     >
-      {loading ? "Génération du PDF..." : "Exporter en PDF"}
-    </button>
-  );
+      {loading ? "Génération..." : "Exporter en PDF"}
+    </Button>
+  )
 }

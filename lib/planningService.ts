@@ -1,392 +1,407 @@
-import "dotenv/config";
-import {
-  getDaysInMonth,
-  getDay,
-  format,
-  getISOWeek,
-  isWeekend,
-} from "date-fns";
-import { fr } from "date-fns/locale";
+// ============================================
+// Types
+
 import { createClient } from "./client";
 
-// ==========================================
-// 1. TYPES & INTERFACES
-// ==========================================
+// ============================================
+type Day = "Lundi" | "Mardi" | "Mercredi" | "Jeudi" | "Vendredi";
+type TimeSlot = "7h45" | "8h00" | "8h30" | "10h00" | "11h30" | "12h00" | "13h30" | "14h00" | "15h00" | "15h30" | "16h00";
+type Agent = "Christelle" | "Manon" | "Lana";
 
-export interface SupabaseResidentJoin {
-  id: string;
-  room: string;
-  first_name: string | null;
-  last_name: string | null;
-  building: string | null;
+interface ResidentConstraint {
+  resident_id: string;
+  allowed_days?: Day[];
+  disallowed_days?: Day[];
+  schedule_hours?: TimeSlot[];
 }
 
-export interface Resident {
-  id: string;
-  room: string;
-  nom: string;
-  building: string;
-  nb: number;
-  time: string;
-  day: string;
-  assigned: number;
+interface PlanningDay {
+  [time: string]: string;
 }
 
-export interface Task {
-  time: string;
-  resident?: string;
-  room?: string;
-  building?: string;
-  type: string;
+interface PlanningWeek {
+  [day: number]: PlanningDay;
 }
 
-export interface DayScheduleFormatted {
-  date: string;
-  tasks: Task[];
-  absence?: {
-    type: string;
-    replacedBy: string;
-  };
-}
-
-export interface WeekSchedule {
-  label: string;
-  days: DayScheduleFormatted[];
-}
-
-export interface MonthlyScheduleResponse {
+interface MonthlyPlanning {
   title: string;
-  subtitle: string;
-  agent: string;
-  weeks: WeekSchedule[];
+  agent: Agent;
+  weeks: PlanningWeek[];
 }
 
-export interface DaySlots {
-  1: string | null; // 08H30
-  2: string | null; // 10H00
-  3: string | null; // 12H00
-  4: string | null; // 13H30
-}
+// ============================================
+// Configuration
+// ============================================
+// Semaines où Lana travaille (À MODIFIER selon tes besoins)
+const LANA_ACTIVE_WEEKS: number[] = [1, 3]; // Exemple : semaines 1 et 3 du mois
 
-// ==========================================
-// 3. RÉCUPÉRATION DES DONNÉES DEPUIS SUPABASE
-// ==========================================
+// Liste des résidents sans contraintes (à remplir avec tes données)
+let UNCONSTRAINED_RESIDENTS: string[] = [];
 
-export async function fetchResidentsFromSupabase(): Promise<Resident[]> {
-  const supabase = createClient();
-
-  // 1. Récupérer tous les résidents
-  const { data: residentsData, error: resError } = await supabase
-    .from("residents")
-    .select("id, room, first_name, last_name, building");
-
-  if (resError) {
-    console.error("Erreur lors de la récupération des résidents :", resError);
-    throw resError;
-  }
-
-  // 2. Récupérer toutes les contraintes
-  const { data: constraintsData, error: constError } = await supabase
-    .from("constraintes")
-    .select(
-      "resident_id, per_month, schedule_hours, allowed_days, disallow_days, additional_service",
-    );
-
-  if (constError) {
-    console.error(
-      "Erreur lors de la récupération des contraintes :",
-      constError,
-    );
-  }
-
-  const constraintsMap = new Map<string, any>();
-  if (constraintsData) {
-    for (const c of constraintsData) {
-      constraintsMap.set(c.resident_id, c);
-    }
-  }
-
-  const residents: Resident[] = [];
-
-  for (const item of residentsData || []) {
-    const fullName =
-      [item.first_name, item.last_name].filter(Boolean).join(" ") || item.room;
-
-    if (!item.room || fullName.includes("Test User")) {
-      continue;
-    }
-
-    const c = constraintsMap.get(item.id) || null;
-
-    const nb = c?.per_month ?? 2;
-    if (nb === 0) continue;
-
-    const scheduleHours =
-      c?.schedule_hours && Array.isArray(c.schedule_hours)
-        ? c.schedule_hours.join(" ").toUpperCase()
-        : "";
-
-    let dayConstraint = "";
-    if (c?.disallow_days && Array.isArray(c.disallow_days)) {
-      dayConstraint += `PAS LE ${c.disallow_days.join(" ").toUpperCase()} `;
-    }
-    if (c?.allowed_days && Array.isArray(c.allowed_days)) {
-      dayConstraint += c.allowed_days.join(" ").toUpperCase();
-    }
-    if (c?.additional_service) {
-      dayConstraint += ` ${c.additional_service.toUpperCase()}`;
-    }
-
-    residents.push({
-      id: item.id,
-      room: item.room,
-      nom: fullName,
-      building: item.building || "1",
-      nb,
-      time: scheduleHours,
-      day: dayConstraint.trim(),
-      assigned: 0,
-    });
-  }
-
-  return residents;
-}
-
-// ==========================================
-// 4. ALGORITHME DE GÉNÉRATION DU PLANNING
-// ==========================================
-
-export function canAssign(
-  resident: Resident,
-  dateObj: Date,
-  slot: 1 | 2 | 3 | 4,
-  daySchedule: DaySlots,
-): boolean {
-  const weekday = getDay(dateObj); // 0: Dimanche, 1: Lundi, ..., 5: Vendredi
-
-  const dayC = resident.day;
-  if (dayC.includes("VENDREDI") && dayC.includes("PAS") && weekday === 5)
-    return false;
-  if (dayC.includes("MARDI") && dayC.includes("PAS") && weekday === 2)
-    return false;
-
-  for (const s of [1, 2, 3, 4] as const) {
-    if (daySchedule[s] === resident.room) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-export function generateMonthlySchedule(
-  residents: Resident[],
-  year: number,
-  month: number,
-  plonge: boolean = false,
-): MonthlyScheduleResponse {
-  const totalDays = getDaysInMonth(new Date(year, month - 1));
-  const workDays: Date[] = [];
-
-  for (let day = 1; day <= totalDays; day++) {
-    const d = new Date(year, month - 1, day);
-    if (!isWeekend(d)) {
-      workDays.push(d);
-    }
-  }
-
-  const scheduleMap = new Map<string, DaySlots>();
-  workDays.forEach((d) => {
-    scheduleMap.set(d.toISOString(), { 1: null, 2: null, 3: null, 4: null });
-  });
-
-  // Mélange initial des résidents pour éviter l'ordre alphabétique ou d'ID
-  const shuffledResidents = [...residents].sort(() => Math.random() - 0.5);
-
-  // Tri souple : on place les contraintes prioritaires en premier, mais mélangées
-  shuffledResidents.sort((a, b) => {
-    const aHasConstraint = (a.time ? 1 : 0) + (a.day ? 1 : 0);
-    const bHasConstraint = (b.time ? 1 : 0) + (b.day ? 1 : 0);
-    if (bHasConstraint !== aHasConstraint) {
-      return bHasConstraint - aHasConstraint;
-    }
-    return b.nb - a.nb;
-  });
-
-  for (const res of shuffledResidents) {
-    while (res.assigned < res.nb) {
-      let assignedInLoop = false;
-
-      // Mélange des jours de travail à chaque résident pour briser l'alignement linéaire
-      const shuffledWorkDays = [...workDays].sort(() => Math.random() - 0.5);
-
-      // Passe 1 : Recherche sur les jours mélangés
-      for (const d of shuffledWorkDays) {
-        if (res.assigned >= res.nb) break;
-        const daySchedule = scheduleMap.get(d.toISOString())!;
-
-        // Mélange des créneaux (slots 1 à 4) pour ne pas toujours assigner la même heure
-        const slots: (1 | 2 | 3 | 4)[] = [1, 2, 3, 4].sort(() => Math.random() - 0.5) as any;
-
-        for (const slot of slots) {
-          if (
-            daySchedule[slot] === null &&
-            canAssign(res, d, slot, daySchedule)
-          ) {
-            const currentWeek = getISOWeek(d);
-            const weekAssignedCount = workDays
-              .filter((wd) => getISOWeek(wd) === currentWeek)
-              .reduce((acc, wd) => {
-                const s = scheduleMap.get(wd.toISOString())!;
-                return (
-                  acc +
-                  ([1, 2, 3, 4] as const).filter(
-                    (slotKey) => s[slotKey] === res.room,
-                  ).length
-                );
-              }, 0);
-
-            if (res.nb <= 5 && weekAssignedCount >= 1) {
-              continue;
-            }
-
-            daySchedule[slot] = res.room;
-            res.assigned++;
-            assignedInLoop = true;
-            break;
-          }
-        }
-        if (assignedInLoop) break;
-      }
-
-      // Passe 2 : Repli si nécessaire avec mélange des jours
-      if (!assignedInLoop) {
-        const shuffledWorkDays2 = [...workDays].sort(() => Math.random() - 0.5);
-        for (const d of shuffledWorkDays2) {
-          if (res.assigned >= res.nb) break;
-          const daySchedule = scheduleMap.get(d.toISOString())!;
-          const slots: (1 | 2 | 3 | 4)[] = [1, 2, 3, 4].sort(() => Math.random() - 0.5) as any;
-
-          for (const slot of slots) {
-            if (
-              daySchedule[slot] === null &&
-              canAssign(res, d, slot, daySchedule)
-            ) {
-              daySchedule[slot] = res.room;
-              res.assigned++;
-              assignedInLoop = true;
-              break;
-            }
-          }
-          if (assignedInLoop) break;
-        }
-      }
-
-      if (!assignedInLoop) break;
-    }
-  }
-
-  const residentMap = new Map(residents.map((r) => [r.room, { nom: r.nom, building: r.building }]));
-  const weeksMap = new Map<number, DayScheduleFormatted[]>();
-
-  workDays.forEach((d) => {
-    const isoWeek = getISOWeek(d);
-    if (!weeksMap.has(isoWeek)) {
-      weeksMap.set(isoWeek, []);
-    }
-
-    const daySchedule = scheduleMap.get(d.toISOString())!;
-    const tasks: Task[] = [];
-    const weekday = getDay(d);
-
-    if (weekday === 1 || weekday === 5) {
-      const bld = weekday === 1 ? "1" : "2";
-      tasks.push({ time: "08H00", resident: "Hall d'entrée", building: bld, type: "hall" });
-    }
-
-    if (daySchedule[1]) {
-      const resInfo = residentMap.get(daySchedule[1]);
-      tasks.push({ time: "08H30", resident: resInfo?.nom || "", room: daySchedule[1], building: resInfo?.building || "1", type: "menage" });
-    }
-    if (daySchedule[2]) {
-      const resInfo = residentMap.get(daySchedule[2]);
-      tasks.push({ time: "10H00", resident: resInfo?.nom || "", room: daySchedule[2], building: resInfo?.building || "1", type: "menage" });
-    }
-
-    tasks.push({ time: "11H30", resident: "—", type: "pause" });
-
-    if (daySchedule[3]) {
-      const resInfo = residentMap.get(daySchedule[3]);
-      tasks.push({ time: "12H00", resident: resInfo?.nom || "", room: daySchedule[3], building: resInfo?.building || "1", type: "menage" });
-    }
-    if (plonge && weekday === 2) {
-      tasks.push({ time: "12H00", resident: "Plonge cuisine", building: "1", type: "plonge" });
-    }
-    if (daySchedule[4]) {
-      const resInfo = residentMap.get(daySchedule[4]);
-      tasks.push({ time: "13H30", resident: resInfo?.nom || "", room: daySchedule[4], building: resInfo?.building || "1", type: "menage" });
-    }
-
-    const frenchDateStr = format(d, "EEEE d MMMM", { locale: fr });
-    const formattedDate = frenchDateStr.charAt(0).toUpperCase() + frenchDateStr.slice(1);
-
-    weeksMap.get(isoWeek)!.push({ date: formattedDate, tasks });
-  });
-
-  const formattedWeeks: WeekSchedule[] = [];
-  for (const [weekNum, days] of weeksMap.entries()) {
-    if (days.length === 0) continue;
-    const firstDayStr = days[0].date;
-    const lastDayStr = days[days.length - 1].date;
-    formattedWeeks.push({
-      label: `Semaine du ${firstDayStr.split(" ")[1]} au ${lastDayStr.split(" ")[1]}`,
-      days,
-    });
-  }
-
-  const monthNames = [
-    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
-  ];
-
-  return {
-    title: `Planning ménage — ${monthNames[month - 1]} ${year}`,
-    subtitle: "Résidence Séniors Aramons / Les Palatines",
-    agent: "Sophie MARTIN",
-    weeks: formattedWeeks,
-  };
-}
-
-// ==========================================
-// 5. FONCTIONS DE SAUVEGARDE ET EXÉCUTION
-// ==========================================
-
-export async function savePlanningToSupabase(
-  schedule: MonthlyScheduleResponse,
-) {
-  const supabase = createClient();
-  const { data, error } = await supabase.from("planning").insert([
-    {
-      date: new Date().toISOString().split("T")[0],
-      data: schedule,
+// ============================================
+// Templates des agents
+// ============================================
+const AGENT_TEMPLATES: Record<Agent, Record<Day, Record<TimeSlot, string>>> = {
+  Christelle: {
+    Lundi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Ménage",
+      "13h30": "Ménage",
+      "15h00": "Parties communes",
+      "16h00": "Fin",
     },
-  ]);
+    Mardi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Ménage",
+      "13h30": "Ménage",
+      "15h00": "Parties communes",
+      "16h00": "Fin",
+    },
+    Mercredi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Fin",
+    },
+    Jeudi: {
+      "7h45": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Ménage",
+      "13h30": "Ménage",
+      "15h00": "Parties communes",
+      "16h00": "Fin",
+    },
+    Vendredi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Navette",
+      "11h30": "Lessives",
+      "12h00": "Fin",
+    },
+  },
+  Manon: {
+    Lundi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Plonge",
+      "14h00": "Ménage",
+      "15h30": "Fin",
+    },
+    Mardi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Plonge",
+      "14h00": "Ménage",
+      "15h30": "Fin",
+    },
+    Mercredi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Plonge",
+      "14h00": "Ménage",
+      "15h30": "Fin",
+    },
+    Jeudi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Plonge",
+      "14h00": "Ménage",
+      "15h30": "Fin",
+    },
+    Vendredi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Plonge",
+      "14h00": "Ménage",
+      "15h30": "Fin",
+    },
+  },
+  Lana: {
+    Lundi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Plonge",
+      "14h00": "Ménage",
+      "15h30": "Fin",
+    },
+    Mardi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Plonge",
+      "14h00": "Ménage",
+      "15h30": "Fin",
+    },
+    Mercredi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Plonge",
+      "14h00": "Ménage",
+      "15h30": "Fin",
+    },
+    Jeudi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Plonge",
+      "14h00": "Ménage",
+      "15h30": "Fin",
+    },
+    Vendredi: {
+      "8h00": "Hall 1 ou 2",
+      "8h30": "Ménage",
+      "10h00": "Ménage",
+      "11h30": "Pause repos",
+      "12h00": "Plonge",
+      "14h00": "Ménage",
+      "15h30": "Fin",
+    },
+  },
+};
+
+// ============================================
+// Fonctions Supabase
+// ============================================
+
+const supabase = createClient();
+
+/**
+ * Récupérer les contraintes des résidents depuis Supabase.
+ */
+async function fetchResidentConstraints(): Promise<ResidentConstraint[]> {
+  const { data, error } = await supabase
+    .from('constraintes')
+    .select('resident_id, allowed_days, disallowed_days, schedule_hours');
 
   if (error) {
-    console.error("Erreur sauvegarde planning :", error);
-    throw error;
+    throw new Error(`Erreur lors de la récupération des contraintes : ${error.message}`);
   }
 
-  return data;
+  return data || [];
 }
 
-export async function generateAndSaveMonthlyPlanning(
-  year: number,
-  month: number,
-  plonge: boolean = false,
-) {
-  const residents = await fetchResidentsFromSupabase();
-  const schedule = generateMonthlySchedule(residents, year, month, plonge);
-  await savePlanningToSupabase(schedule);
-  return schedule;
+/**
+ * Récupérer la liste des résidents sans contraintes.
+ * (Optionnel : si tu as une table `residents` sans contraintes)
+ */
+async function fetchUnconstrainedResidents(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('residents')
+    .select('resident_id')
+    .not('constraintes.resident_id', 'is', null); // Exemple : résidents sans entrée dans `constraintes`
+
+  if (error) {
+    throw new Error(`Erreur lors de la récupération des résidents : ${error.message}`);
+  }
+
+  return data.map((row: any) => row.resident_id);
 }
+
+// ============================================
+// Fonctions utilitaires
+// ============================================
+
+function getWeeksInMonth(mois: string, année: number): number[] {
+  const monthIndex = new Date(`${mois} 1, ${année}`).getMonth();
+  const firstDay = new Date(année, monthIndex, 1);
+  const lastDay = new Date(année, monthIndex + 1, 0);
+
+  const firstDayOfYear = new Date(année, 0, 1);
+  const daysBetweenFirstDayAndFirstDayOfYear = (firstDay.getTime() - firstDayOfYear.getTime()) / (1000 * 60 * 60 * 24);
+  const firstWeekOfMonth = Math.ceil((daysBetweenFirstDayAndFirstDayOfYear + firstDayOfYear.getDay() + 1) / 7);
+
+  const daysBetweenLastDayAndFirstDayOfYear = (lastDay.getTime() - firstDayOfYear.getTime()) / (1000 * 60 * 60 * 24);
+  const lastWeekOfMonth = Math.ceil((daysBetweenLastDayAndFirstDayOfYear + firstDayOfYear.getDay() + 1) / 7);
+
+  return Array.from({ length: lastWeekOfMonth - firstWeekOfMonth + 1 }, (_, i) => i + firstWeekOfMonth);
+}
+
+function findAvailableResident(
+  constraints: ResidentConstraint[],
+  day: Day,
+  timeSlot: TimeSlot,
+  usedResidents: Set<string>
+): string | null {
+  const constrainedResidents = constraints.filter((c) => {
+    if (c.disallowed_days && c.disallowed_days.includes(day)) return false;
+    if (c.allowed_days && !c.allowed_days.includes(day)) return false;
+    if (c.schedule_hours && !c.schedule_hours.includes(timeSlot)) return false;
+    return true;
+  });
+
+  for (const resident of constrainedResidents) {
+    if (!usedResidents.has(resident.resident_id)) {
+      return resident.resident_id;
+    }
+  }
+
+  for (const residentId of UNCONSTRAINED_RESIDENTS) {
+    if (!usedResidents.has(residentId)) {
+      return residentId;
+    }
+  }
+
+  return null;
+}
+
+function generateWeekPlanning(
+  agent: Agent,
+  weekNumber: number,
+  constraints: ResidentConstraint[]
+): PlanningWeek {
+  const weekPlanning: PlanningWeek = {};
+  const days: Day[] = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
+  let hallNumber = 1;
+
+  for (const dayIndex in days) {
+    const day = days[dayIndex];
+    const dayPlanning: PlanningDay = {};
+    const usedResidents = new Set<string>();
+
+    const template = AGENT_TEMPLATES[agent][day];
+
+    for (const [timeSlot, task] of Object.entries(template)) {
+      if (timeSlot === "8h00" || timeSlot === "7h45") {
+        const hall = `Hall ${hallNumber}`;
+        dayPlanning[timeSlot as TimeSlot] = hall;
+        hallNumber = hallNumber === 1 ? 2 : 1;
+      } else if (task === "Ménage" || task === "Plonge") {
+        const resident = findAvailableResident(
+          constraints,
+          day,
+          timeSlot as TimeSlot,
+          usedResidents
+        );
+        if (resident) {
+          dayPlanning[timeSlot as TimeSlot] = resident;
+          usedResidents.add(resident);
+        } else {
+          dayPlanning[timeSlot as TimeSlot] = task;
+        }
+      } else {
+        dayPlanning[timeSlot as TimeSlot] = task;
+      }
+    }
+
+    weekPlanning[parseInt(dayIndex) + 1] = dayPlanning;
+  }
+
+  return weekPlanning;
+}
+
+function redistributeLanaTasks(
+  plannings: MonthlyPlanning[],
+  weeksInMonth: number[],
+  lanaActiveWeeks: number[]
+): void {
+  const christellePlanning = plannings.find((p) => p.agent === "Christelle")!;
+  const manonPlanning = plannings.find((p) => p.agent === "Manon")!;
+
+  const inactiveWeeks = weeksInMonth.filter((w) => !lanaActiveWeeks.includes(w));
+
+  for (const weekNumber of inactiveWeeks) {
+    const lanaWeekPlanning = generateWeekPlanning("Lana", weekNumber, []);
+
+    for (const dayNumber in lanaWeekPlanning) {
+      const lanaDayPlanning = lanaWeekPlanning[parseInt(dayNumber)];
+
+      for (const [timeSlot, task] of Object.entries(lanaDayPlanning)) {
+        if (task === "Ménage" || task === "Plonge") {
+          const targetAgent = parseInt(dayNumber) % 2 === 0 ? "Christelle" : "Manon";
+          const targetPlanning = targetAgent === "Christelle" ? christellePlanning : manonPlanning;
+          const targetWeek = targetPlanning.weeks[weekNumber - 1];
+          if (targetWeek && targetWeek[parseInt(dayNumber)]) {
+            const targetDay = targetWeek[parseInt(dayNumber)];
+            if (targetDay && (targetDay[timeSlot as TimeSlot] === "Ménage" || targetDay[timeSlot as TimeSlot] === "Plonge")) {
+              targetDay[timeSlot as TimeSlot] = `Ménage (Lana)`;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// ============================================
+// Fonction principale
+// ============================================
+async function generateMonthlyPlannings(
+  mois: string,
+  année: number
+): Promise<MonthlyPlanning[]> {
+  // 1. Récupérer les contraintes depuis Supabase
+  const constraints = await fetchResidentConstraints();
+
+  // 2. Récupérer les résidents sans contraintes (optionnel)
+  const unconstrainedResidents = await fetchUnconstrainedResidents();
+  UNCONSTRAINED_RESIDENTS = unconstrainedResidents;
+
+  // 3. Obtenir les semaines du mois
+  const weeksInMonth = getWeeksInMonth(mois, année);
+
+  // 4. Initialiser les plannings
+  const plannings: MonthlyPlanning[] = [
+    { title: `Planning ménage - ${mois} ${année}`, agent: "Christelle", weeks: [] },
+    { title: `Planning ménage - ${mois} ${année}`, agent: "Manon", weeks: [] },
+    { title: `Planning ménage - ${mois} ${année}`, agent: "Lana", weeks: [] },
+  ];
+
+  // 5. Générer le planning pour chaque semaine et chaque agent
+  for (const weekNumber of weeksInMonth) {
+    const isLanaActive = LANA_ACTIVE_WEEKS.includes(weekNumber);
+
+    for (const planning of plannings) {
+      if (planning.agent === "Lana" && !isLanaActive) continue;
+
+      const weekPlanning = generateWeekPlanning(planning.agent, weekNumber, constraints);
+      planning.weeks.push(weekPlanning);
+    }
+  }
+
+  // 6. Redistribuer les tâches de Lana
+  redistributeLanaTasks(plannings, weeksInMonth, LANA_ACTIVE_WEEKS);
+
+  return plannings;
+}
+
+// ============================================
+// Exécution
+// ============================================
+(async () => {
+  try {
+    // Générer les plannings pour septembre 2026
+    const plannings = await generateMonthlyPlannings("Septembre", 2026);
+
+    // Afficher le résultat
+    console.log(JSON.stringify(plannings, null, 2));
+
+    // Optionnel : Enregistrer en base de données
+    // await savePlanningsToDatabase(plannings);
+  } catch (error) {
+    console.error("Erreur :", error);
+  }
+})();

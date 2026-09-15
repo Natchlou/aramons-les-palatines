@@ -64,9 +64,9 @@ function NoticePage({ notice }: { notice: ResidentNotice }) {
             Bâtiment : <Text style={tw("font-bold")}>{notice.building}</Text>
           </Text>
 
-          <View style={tw("font-bold border-2 p-6 flex flex-col items-center justify-center mt-6 w-4/5")}>
-            <Text style={tw("text-4xl")}>{notice.day}</Text>
-            <Text style={tw("text-4xl")}>à {notice.time}</Text>
+          <View style={tw("border-2 p-6 flex flex-col items-center justify-center mt-6 w-4/5")}>
+            <Text style={tw("text-6xl")}>{notice.day}</Text>
+            <Text style={tw("text-6xl")}>à {notice.time}</Text>
           </View>
         </View>
       </View>
