@@ -1,210 +1,68 @@
-import { NextResponse } from "next/server";
-
+// app/api/pdf/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-
-import { createElement, type ReactElement } from "react";
-
-import { z } from "zod";
-
-import CleaningPlanningPdf from "@/lib/pdf/cleaning-planning-pdf";
-
-import type {
-  CleaningPlanning,
-  CleaningPlanningData,
-  Resident,
-} from "@/lib/planning/types";
-
 import { createClient } from "@/lib/server";
+import { filterScheduleByAgent } from "@/lib/planningService";
+import { CleaningPlanningPdf } from "@/components/pdf/cleaning-planning-pdf";
+import type { MonthlyScheduleResponse } from "@/lib/planningService";
 
-export const runtime = "nodejs";
-
-const requestSchema = z.object({
-  planningId: z.number().int().positive(),
-  agent: z.string().trim().min(1),
-});
-
-const planningDataSchema = z.object({
-  title: z.string(),
-  agent: z.string(),
-  weeks: z.array(
-    z.record(
-      z.enum(["1", "2", "3", "4", "5"]),
-      z.record(z.string(), z.string()),
-    ),
-  ),
-});
-
-const residentSchema = z.object({
-  id: z.string(),
-  prefix: z.string().nullable(),
-  first_name: z.string().nullable(),
-  last_name: z.string().nullable(),
-  room: z.string().nullable(),
-  building: z.string().nullable(),
-  created_at: z.string().optional(),
-});
-
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const { planningId, agent } = await req.json();
+
+    if (typeof planningId !== "number") {
+      return NextResponse.json(
+        { error: "planningId requis (number)." },
+        { status: 400 },
+      );
+    }
+
+    // 1. Récupérer le planning
     const supabase = await createClient();
-
-    const { data: claimsData, error: claimsError } =
-      await supabase.auth.getClaims();
-
-    if (claimsError || !claimsData?.claims) {
-      return NextResponse.json(
-        {
-          error: "Vous devez être connecté.",
-        },
-        {
-          status: 401,
-        },
-      );
-    }
-
-    const body = await request.json();
-
-    const parsedRequest = requestSchema.safeParse(body);
-
-    if (!parsedRequest.success) {
-      return NextResponse.json(
-        {
-          error: "Requête invalide.",
-          details: parsedRequest.error.flatten(),
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    const { planningId, agent } = parsedRequest.data;
-
-    const { data: planningRow, error: planningError } = await supabase
+    const { data, error } = await supabase
       .from("planning")
-      .select("id, data")
+      .select("id, year, month, data")
       .eq("id", planningId)
       .single();
 
-    if (planningError) {
-      console.error("Erreur récupération planning :", planningError);
-
+    if (error || !data) {
       return NextResponse.json(
-        {
-          error: "Impossible de récupérer le planning.",
-        },
-        {
-          status: 500,
-        },
+        { error: "Planning introuvable." },
+        { status: 404 },
       );
     }
 
-    if (!planningRow) {
+    const fullSchedule = data.data as MonthlyScheduleResponse;
+
+    // 2. Filtrer si un agent est précisé
+    const schedule = agent
+      ? filterScheduleByAgent(fullSchedule, agent)
+      : fullSchedule;
+
+    // 3. Vérifier qu'il y a du contenu
+    if (schedule.weeks.length === 0) {
       return NextResponse.json(
-        {
-          error: "Planning introuvable.",
-        },
-        {
-          status: 404,
-        },
+        { error: `Aucun ménage trouvé pour ${agent ?? "ce planning"}.` },
+        { status: 404 },
       );
     }
 
-    const parsedPlanningData = z
-      .array(planningDataSchema)
-      .safeParse(planningRow.data);
-
-    if (!parsedPlanningData.success) {
-      console.error(
-        "Format planning.data invalide :",
-        parsedPlanningData.error,
-      );
-
-      return NextResponse.json(
-        {
-          error: "Le format des données du planning est invalide.",
-        },
-        {
-          status: 500,
-        },
-      );
-    }
-
-    const agentPlanning = parsedPlanningData.data.find(
-      (item) => item.agent.trim().toLowerCase() === agent.trim().toLowerCase(),
+    // 4. Générer le PDF
+    const buffer = await renderToBuffer(
+      CleaningPlanningPdf({ schedule }) as any,
     );
 
-    if (!agentPlanning) {
-      return NextResponse.json(
-        {
-          error: `Aucun planning trouvé pour l'agent "${agent}".`,
-        },
-        {
-          status: 404,
-        },
-      );
-    }
+    // 5. Nom du fichier
+    const mm = String(data.month).padStart(2, "0");
+    const filename = agent
+      ? `planning-menage-${data.year}-${mm}-${agent
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/\s+/g, "-")}.pdf`
+      : `planning-menage-${data.year}-${mm}.pdf`;
 
-    const planning: CleaningPlanning = {
-      id: planningRow.id,
-      title: agentPlanning.title,
-      agent: agentPlanning.agent,
-      weeks: agentPlanning.weeks,
-    };
-
-    const { data: residentsData, error: residentsError } = await supabase
-      .from("residents")
-      .select("id, prefix, first_name, last_name, room, building, created_at")
-      .order("last_name", {
-        ascending: true,
-      });
-
-    if (residentsError) {
-      console.error("Erreur récupération résidents :", residentsError);
-
-      return NextResponse.json(
-        {
-          error: "Impossible de récupérer les résidents.",
-        },
-        {
-          status: 500,
-        },
-      );
-    }
-
-    const parsedResidents = z
-      .array(residentSchema)
-      .safeParse(residentsData ?? []);
-
-    if (!parsedResidents.success) {
-      console.error("Format residents invalide :", parsedResidents.error);
-
-      return NextResponse.json(
-        {
-          error: "Le format des résidents est invalide.",
-        },
-        {
-          status: 500,
-        },
-      );
-    }
-
-    const residents: Resident[] = parsedResidents.data;
-
-    const pdfElement = createElement(CleaningPlanningPdf, {
-      planning,
-      residents,
-    }) as ReactElement;
-
-    const buffer = await renderToBuffer(pdfElement);
-
-    const filename = `planning-menage-${planning.agent
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/gi, "-")
-      .replace(/^-+|-+$/g, "")}.pdf`;
-
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
@@ -212,19 +70,11 @@ export async function POST(request: Request) {
         "Cache-Control": "no-store",
       },
     });
-  } catch (error) {
-    console.error("Erreur génération PDF :", error);
-
+  } catch (err) {
+    console.error("[api/pdf] Erreur :", err);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Une erreur est survenue lors de la génération du PDF.",
-      },
-      {
-        status: 500,
-      },
+      { error: "Erreur serveur lors de la génération du PDF." },
+      { status: 500 },
     );
   }
 }

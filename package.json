@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test-planning": "tsx scripts/test-planning.ts",
+    "test-pdf": "tsx scripts/test-pdf.ts",
     "generate-type": "supabase gen types typescript --project-id ckaycfxfdtnsiybybdbv > database.types.ts"
   },
   "dependencies": {

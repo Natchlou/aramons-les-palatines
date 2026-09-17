@@ -33,7 +33,7 @@ export default async function PlanningPage() {
         {/* <PlanningForm /> */}
       </div>
       <main>
-        <CleaningPlanning title={data.data[0].title} agent={data.data[0].agent} weeks={data.data[0].weeks} residents={residents}/>
+        <CleaningPlanning schedule={data?.data} hideFixedTasks agentFilter="Christelle"/>
         {/* <pre>{JSON.stringify(data.data[0], null, 2)}</pre> */}
       </main>
     </div>

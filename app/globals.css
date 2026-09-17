@@ -167,3 +167,62 @@
     #ffffff 40px
   );
 }
+
+@media print {
+  /* Masquer tout ce qui est marqué no-print */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Masquer les onglets Radix non-actifs */
+  [data-state="inactive"].print-only-active {
+    display: none !important;
+  }
+
+  /* Afficher l'onglet actif */
+  [data-state="active"].print-only-active {
+    display: block !important;
+  }
+
+  /* Page A4 paysage */
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Éviter les coupures au milieu d'un jour */
+  table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Répéter l'en-tête du tableau sur chaque page */
+  table thead {
+    display: table-header-group;
+  }
+
+  /* Supprimer les ombres */
+  .shadow-sm,
+  .shadow,
+  .shadow-md,
+  .shadow-lg {
+    box-shadow: none !important;
+  }
+
+  /* Bordures plus nettes */
+  table,
+  th,
+  td {
+    border-color: #000 !important;
+  }
+}

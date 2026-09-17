@@ -1,11 +1,6 @@
-import GeneratePlanningPdf from "@/components/pdf/generate-planning-pdf"
-import { CleaningPlanning } from "@/components/planning/cleaning-planning"
-
-import type {
-  CleaningPlanning as CleaningPlanningType,
-  CleaningPlanningData,
-  Resident,
-} from "@/lib/planning/types"
+import GenerateResidentNotices from "@/components/generate-resident-notice-pdf"
+import { PlanningTabs } from "@/components/planning-tabs"
+import { MonthlyScheduleResponse } from "@/lib/planningService"
 
 import { createClient } from "@/lib/server"
 
@@ -18,18 +13,18 @@ export default async function Test1Page() {
   /* ------------------------------------------------------------------------ */
 
   const {
-    data: planningRow,
+    data: PlanningRow,
     error: planningError,
   } =
     await supabase
       .from("planning")
-      .select("id, data")
+      .select("*")
       .limit(1)
       .single()
 
   if (
     planningError ||
-    !planningRow
+    !PlanningRow
   ) {
     console.error(
       "Planning error:",
@@ -45,154 +40,82 @@ export default async function Test1Page() {
       </main>
     )
   }
-
   /* ------------------------------------------------------------------------ */
-  /* AGENTS                                                                    */
+  /* PARSING                                                                   */
   /* ------------------------------------------------------------------------ */
 
-  const planningData =
-    planningRow.data
+  // `data` doit être un objet avec un tableau `weeks` non vide
+  const rawData = PlanningRow.data
 
   if (
-    !Array.isArray(
-      planningData,
-    )
+    !rawData ||
+    typeof rawData !== "object" ||
+    Array.isArray(rawData) ||
+    !Array.isArray((rawData as { weeks?: unknown }).weeks)
   ) {
-    console.error(
-      "Format planning invalide:",
-      planningData,
-    )
+    console.error("Format planning invalide:", rawData)
 
     return (
       <main className="p-8">
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          Le format des données
-          du planning est invalide.
+          Le format des données du planning est invalide.
         </div>
       </main>
     )
   }
 
-  const agentPlannings =
-    planningData as CleaningPlanningData[]
+  // On peut maintenant caster sans risque
+  const schedule = rawData as unknown as MonthlyScheduleResponse
 
-  /* ------------------------------------------------------------------------ */
-  /* RESIDENTS                                                                 */
-  /* ------------------------------------------------------------------------ */
+  const seen = new Set<string>()
+  const residentsInPlanning = []
 
-  const {
-    data: residentsData,
-    error: residentsError,
-  } =
-    await supabase
-      .from("residents")
-      .select(
-        "id, prefix, first_name, last_name, room, building, created_at",
-      )
-      .order("last_name", {
-        ascending: true,
-      })
-
-  if (residentsError) {
-    console.error(
-      "Residents error:",
-      residentsError,
-    )
-
-    return (
-      <main className="p-8">
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          Impossible de récupérer
-          les résidents.
-        </div>
-      </main>
-    )
+  for (const w of schedule.weeks) {
+    for (const d of w.days) {
+      for (const t of d.tasks) {
+        if (t.type !== "menage" || !t.room) continue
+        if (seen.has(t.room)) continue
+        seen.add(t.room)
+        residentsInPlanning.push({
+          id: t.room,
+          nom: t.resident ?? "—",
+          room: t.room,
+        })
+      }
+    }
   }
 
-  const residents =
-    (residentsData ??
-      []) as Resident[]
-
+  residentsInPlanning.sort((a, b) => a.nom.localeCompare(b.nom))
   /* ------------------------------------------------------------------------ */
   /* PAGE                                                                      */
   /* ------------------------------------------------------------------------ */
 
   return (
     <main className="mx-auto w-full max-w-400 space-y-10 p-6 lg:p-8">
-      {/* PAGE HEADER */}
       <header className="border-b pb-6">
-        <p className="text-sm font-medium text-muted-foreground">
-          Administration
-        </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Administration</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+              Plannings ménage
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {schedule.title}
+            </p>
+          </div>
 
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">
-          Plannings ménage
-        </h1>
-
-        <p className="mt-2 text-sm text-muted-foreground">
-          Gestion et export des
-          plannings des agents.
-        </p>
+          <GenerateResidentNotices
+            schedule={schedule}
+          />
+        </div>
       </header>
 
-      {/* AGENTS */}
-      {agentPlannings.map(
-        (agentPlanning) => {
-          const planning: CleaningPlanningType =
-          {
-            id: planningRow.id,
-            ...agentPlanning,
-          }
-
-          return (
-            <section
-              key={
-                planning.agent
-              }
-              className="space-y-6"
-            >
-              {/* AGENT HEADER */}
-              <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Agent
-                  </p>
-
-                  <h2 className="text-xl font-bold">
-                    {
-                      planning.agent
-                    }
-                  </h2>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <GeneratePlanningPdf
-                    planningId={planning.id}
-                    agent={planning.agent}
-                    disabled={planning.weeks.length === 0}
-                  />
-                </div>
-              </div>
-
-              {/* PLANNING */}
-              <CleaningPlanning
-                title={
-                  planning.title
-                }
-                agent={
-                  planning.agent
-                }
-                weeks={
-                  planning.weeks
-                }
-                residents={
-                  residents
-                }
-              />
-            </section>
-          )
-        },
-      )}
+      <PlanningTabs
+        schedule={schedule}
+        planningId={PlanningRow.id}
+        year={PlanningRow.year}
+        month={PlanningRow.month}
+      />
     </main>
   )
 }

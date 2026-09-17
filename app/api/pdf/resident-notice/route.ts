@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import ResidentNoticePdf, {
   type ResidentNotice,
-} from "@/lib/pdf/resident-notice-pdf";
+} from "@/components/pdf/resident-notice-pdf";
 import { createClient } from "@/lib/server";
 
 export const runtime = "nodejs";
