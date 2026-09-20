@@ -1,41 +1,121 @@
-// app/planning/page.tsx
+import GenerateResidentNotices from "@/components/generate-resident-notice-pdf"
+import { PlanningTabs } from "@/components/planning-tabs"
+import { MonthlyScheduleResponse } from "@/lib/planningService"
 
-import {CleaningPlanning} from "@/components/planning";
-import { createClient } from "@/lib/client";
+import { createClient } from "@/lib/server"
 
-// import { useEffect, useState } from "react";
+export default async function Test1Page() {
+  const supabase =
+    await createClient()
 
-export default async function PlanningPage() {
+  /* ------------------------------------------------------------------------ */
+  /* PLANNING                                                                 */
+  /* ------------------------------------------------------------------------ */
 
-  const supabase = createClient()
+  const {
+    data: PlanningRow,
+    error: planningError,
+  } =
+    await supabase
+      .from("planning")
+      .select("*")
+      .limit(1)
+      .single()
 
-  const {data} = await supabase.from("planning").select('data').limit(1).single();
-  const {data: residents} = await supabase.from("residents").select('*');
+  if (
+    planningError ||
+    !PlanningRow
+  ) {
+    console.error(
+      "Planning error:",
+      planningError,
+    )
 
-  // const [plannings, setPlannings] = useState<any>(null);
-  // const [loading, setLoading] = useState(true);
+    return (
+      <main className="p-8">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          Impossible de récupérer
+          le planning.
+        </div>
+      </main>
+    )
+  }
+  /* ------------------------------------------------------------------------ */
+  /* PARSING                                                                   */
+  /* ------------------------------------------------------------------------ */
 
-  // useEffect(() => {
-  //   fetch("/api/generate-planning?mois=Septembre&année=2026")
-  //     .then((res) => res.json())
-  //     .then((data) => {
-  //       setPlannings(data);
-  //       setLoading(false);
-  //     });
-  // }, []);
+  // `data` doit être un objet avec un tableau `weeks` non vide
+  const rawData = PlanningRow.data
 
-  // if (loading) return <p>Chargement...</p>;
+  if (
+    !rawData ||
+    typeof rawData !== "object" ||
+    Array.isArray(rawData) ||
+    !Array.isArray((rawData as { weeks?: unknown }).weeks)
+  ) {
+    console.error("Format planning invalide:", rawData)
+
+    return (
+      <main className="p-8">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          Le format des données du planning est invalide.
+        </div>
+      </main>
+    )
+  }
+
+  // On peut maintenant caster sans risque
+  const schedule = rawData as unknown as MonthlyScheduleResponse
+
+  const seen = new Set<string>()
+  const residentsInPlanning = []
+
+  for (const w of schedule.weeks) {
+    for (const d of w.days) {
+      for (const t of d.tasks) {
+        if (t.type !== "menage" || !t.room) continue
+        if (seen.has(t.room)) continue
+        seen.add(t.room)
+        residentsInPlanning.push({
+          id: t.room,
+          nom: t.resident ?? "—",
+          room: t.room,
+        })
+      }
+    }
+  }
+
+  residentsInPlanning.sort((a, b) => a.nom.localeCompare(b.nom))
+  /* ------------------------------------------------------------------------ */
+  /* PAGE                                                                      */
+  /* ------------------------------------------------------------------------ */
 
   return (
-    <div className="flex flex-col flex-1 min-w-7xl mx-auto px-4 py-8 font-sans dark:bg-black">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold">Votre planning en quelques clicks</h1>
-        {/* <PlanningForm /> */}
-      </div>
-      <main>
-        <CleaningPlanning schedule={data?.data} hideFixedTasks agentFilter="Christelle"/>
-        {/* <pre>{JSON.stringify(data.data[0], null, 2)}</pre> */}
-      </main>
-    </div>
-  );
+    <main className="mx-auto w-full max-w-400 space-y-10 p-6 lg:p-8">
+      <header className="border-b pb-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Administration</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+              Plannings ménage
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {schedule.title}
+            </p>
+          </div>
+
+          <GenerateResidentNotices
+            schedule={schedule}
+          />
+        </div>
+      </header>
+
+      <PlanningTabs
+        schedule={schedule}
+        planningId={PlanningRow.id}
+        year={PlanningRow.year}
+        month={PlanningRow.month}
+      />
+    </main>
+  )
 }

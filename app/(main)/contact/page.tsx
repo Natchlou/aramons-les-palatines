@@ -3,7 +3,7 @@ import Image from "next/image";
 
 export default function Contact() {
   return (
-    <section className='bg-muted py-8 sm:py-16 lg:py-24'>
+    <section className='py-8 sm:py-16 lg:py-24'>
       <div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
         {/* Header */}
         <div className='relative mx-auto mb-12 w-fit sm:mb-16 lg:mb-24'>

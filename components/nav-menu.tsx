@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/navigation-menu";
 
 export const NavMenu = (props: ComponentProps<typeof NavigationMenu>) => (
-  <NavigationMenu {...props}>
+  <NavigationMenu {...props} orientation={props.orientation}>
     <NavigationMenuList className="data-[orientation=vertical]:-ms-2 data-[orientation=vertical]:flex-col data-[orientation=vertical]:items-start data-[orientation=vertical]:justify-start">
       <NavigationMenuItem>
         <NavigationMenuLink className={navigationMenuTriggerStyle()} render={<Link href="/" />}>Accueil</NavigationMenuLink>
@@ -20,13 +20,10 @@ export const NavMenu = (props: ComponentProps<typeof NavigationMenu>) => (
         <NavigationMenuLink className={navigationMenuTriggerStyle()} render={<Link href="/planning" />}>Planning</NavigationMenuLink>
       </NavigationMenuItem>
       <NavigationMenuItem>
-        <NavigationMenuLink className={navigationMenuTriggerStyle()} render={<Link href="/contact" />}>Nous contacter</NavigationMenuLink>
-      </NavigationMenuItem>
-      <NavigationMenuItem>
         <NavigationMenuLink className={navigationMenuTriggerStyle()} render={<Link href="/admin/residents" />}>Administration</NavigationMenuLink>
       </NavigationMenuItem>
       <NavigationMenuItem>
-        <NavigationMenuLink className={navigationMenuTriggerStyle()} render={<Link href="/test1" />}>Pdf</NavigationMenuLink>
+        <NavigationMenuLink className={navigationMenuTriggerStyle()} render={<Link href="/contact" />}>Me contacter</NavigationMenuLink>
       </NavigationMenuItem>
     </NavigationMenuList>
   </NavigationMenu>
