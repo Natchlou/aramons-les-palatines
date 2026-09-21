@@ -1,5 +1,6 @@
 import GenerateResidentNotices from "@/components/generate-resident-notice-pdf"
 import { PlanningTabs } from "@/components/planning-tabs"
+import FormPlanning from "@/components/planning/form-planning"
 import { MonthlyScheduleResponse } from "@/lib/planningService"
 
 import { createClient } from "@/lib/server"
@@ -103,10 +104,12 @@ export default async function Test1Page() {
               {schedule.title}
             </p>
           </div>
-
-          <GenerateResidentNotices
-            schedule={schedule}
-          />
+          <div className="flex flex-col gap-2">
+            <FormPlanning />
+            <GenerateResidentNotices
+              schedule={schedule}
+            />
+          </div>
         </div>
       </header>
 
