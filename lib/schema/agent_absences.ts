@@ -1,47 +1,30 @@
 import { defineSchema } from "@buildnbuzz/form-core";
-import { createClient } from "../client";
 import { addDays, startOfDay } from "date-fns";
-
-const supabase = createClient();
-const { data: agent } = await supabase.from("agent").select("id, name");
-
-const agents =
-  agent?.map((user) => ({
-    value: user.id,
-    label: user.name,
-  })) ?? [];
 
 const type = [
   { label: "Congé", value: "conge" },
   { label: "Arrêt maladie", value: "maladie" },
   { label: "Repos", value: "repos" },
   { label: "RTT", value: "rtt" },
+  { label: "Vacances", value: "vacances"},
   { label: "Autre", value: "autre" },
 ];
 
 const AgentAbscencesSchema = defineSchema({
   fields: [
     {
-      type: "radio",
-      name: "agent",
-      label: "Agent d'entretien",
-      required: true,
-      options: agents,
-    },
-    {
       type: "select",
       name: "type",
       label: "Type d'absence",
       options: type,
       required: true,
-      disabled: { $data: "/agent", eq: "" },
     },
     {
       type: "textarea",
       name: "motif",
       label: "Motif",
       required:  { $data: "/type", eq: "autre" },
-      disabled: { $data: "/type", eq: "autre" },
+      disabled: { $data: "/type", neq: "autre" },
     },
     {
       type: "date",

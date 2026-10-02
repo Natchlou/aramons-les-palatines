@@ -44,6 +44,44 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_absences: {
+        Row: {
+          agent_id: number | null
+          created_at: string
+          end_date: string | null
+          id: number
+          motif: string | null
+          start_date: string | null
+          type: string | null
+        }
+        Insert: {
+          agent_id?: number | null
+          created_at?: string
+          end_date?: string | null
+          id?: number
+          motif?: string | null
+          start_date?: string | null
+          type?: string | null
+        }
+        Update: {
+          agent_id?: number | null
+          created_at?: string
+          end_date?: string | null
+          id?: number
+          motif?: string | null
+          start_date?: string | null
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_absences_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       constraintes: {
         Row: {
           additional_service: string | null
@@ -141,6 +179,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           date: string | null
+          details: Json | null
           heure: string | null
           id: string
           resident_id: string | null
@@ -151,6 +190,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           date?: string | null
+          details?: Json | null
           heure?: string | null
           id?: string
           resident_id?: string | null
@@ -161,6 +201,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           date?: string | null
+          details?: Json | null
           heure?: string | null
           id?: string
           resident_id?: string | null
@@ -218,6 +259,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           date: string | null
+          details: Json | null
           heure: string | null
           id: string
           resident_id: string | null

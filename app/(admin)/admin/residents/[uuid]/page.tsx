@@ -60,7 +60,7 @@ export default async function AdminResidentShow({
     }
 
     return (
-        <div className="mx-auto flex min-w-7xl flex-1 flex-col px-4 py-8 font-sans gap-6">
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 font-sans gap-6">
             {/* ===== En-tête : identité ===== */}
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -124,6 +124,9 @@ export default async function AdminResidentShow({
                                                     {item.statut}
                                                 </TableCell>
                                                 <TableCell className="text-right">
+                                                    <Link href={`/admin/residents/${resident.id}/${item.id}`}>
+                                                        Voir en détail
+                                                    </Link>
                                                 </TableCell>
                                             </TableRow>
                                         ))}

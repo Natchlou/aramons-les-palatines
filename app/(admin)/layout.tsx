@@ -26,11 +26,11 @@ export default function AdminLayout({ children }: LayoutProps<"/">) {
               } as React.CSSProperties
             }
           >
-            <AppSidebar variant="inset" />
+            <AppSidebar variant="inset" collapsible="icon" />
             <SidebarInset>
               <SiteHeader />
-              <div className="flex flex-1 flex-col">
-                <div className="@container/main flex flex-1 flex-col gap-2">
+              <div className="flex w-full flex-1 flex-col">
+                <div className="@container/main w-full flex flex-1 flex-col gap-2">
                   {children}
                 </div>
               </div>

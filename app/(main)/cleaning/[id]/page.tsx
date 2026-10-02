@@ -18,12 +18,12 @@ import { Button } from "@/components/ui/button";
 import {
   AlertCircleIcon,
   CheckCircle2Icon,
-  CheckIcon,
   Clock3Icon,
   Loader2Icon,
   PlayIcon,
   XIcon,
 } from "lucide-react";
+import { SlideToAction } from "@/components/slide-to-action";
 
 type Resident = {
   id: string;
@@ -62,6 +62,15 @@ export default function CleaningPage({
   const [now, setNow] = useState(0);
 
   const [error, setError] = useState<string | null>(null);
+
+  /*
+   * Incrémentés à chaque tentative échouée (démarrage / validation).
+   * Servent de resetKey aux SlideToAction correspondants : en cas
+   * d'échec, le slider revient visuellement à son état initial au
+   * lieu de rester bloqué sur son état "validé".
+   */
+  const [startAttempt, setStartAttempt] = useState(0);
+  const [completionAttempt, setCompletionAttempt] = useState(0);
 
   /*
    * Chargement du ménage + résident.
@@ -194,11 +203,11 @@ export default function CleaningPage({
     !menage?.started_at || now === 0
       ? CLEANING_DURATION_MS
       : Math.max(
-          0,
-          new Date(menage.started_at).getTime() +
-            CLEANING_DURATION_MS -
-            now,
-        );
+        0,
+        new Date(menage.started_at).getTime() +
+        CLEANING_DURATION_MS -
+        now,
+      );
 
   /*
    * Validation disponible uniquement lorsque
@@ -234,6 +243,9 @@ export default function CleaningPage({
 
   /*
    * Démarrage du ménage.
+   *
+   * Déclenché par le SlideToAction : en cas d'échec, on incrémente
+   * startAttempt pour réinitialiser le slider.
    */
   const handleStart = async () => {
     if (!menage) {
@@ -269,6 +281,7 @@ export default function CleaningPage({
           "Impossible de démarrer le ménage. Il a peut-être déjà été démarré.",
         );
 
+        setStartAttempt((attempt) => attempt + 1);
         return;
       }
 
@@ -285,6 +298,8 @@ export default function CleaningPage({
       setError(
         "Une erreur est survenue lors du démarrage.",
       );
+
+      setStartAttempt((attempt) => attempt + 1);
     } finally {
       setActionLoading(false);
     }
@@ -295,6 +310,11 @@ export default function CleaningPage({
    *
    * La RPC PostgreSQL vérifie elle-même les 90 minutes.
    * Le navigateur n'est donc PAS la sécurité.
+   *
+   * Déclenchée par le SlideToAction : si la RPC refuse la
+   * validation, on incrémente completionAttempt pour que le
+   * slider se réinitialise au lieu de rester affiché comme
+   * "validé" à tort.
    */
   const handleComplete = async () => {
     if (!menage || !canComplete) {
@@ -349,6 +369,7 @@ export default function CleaningPage({
             );
         }
 
+        setCompletionAttempt((attempt) => attempt + 1);
         return;
       }
 
@@ -357,6 +378,7 @@ export default function CleaningPage({
           "La validation du ménage a échoué.",
         );
 
+        setCompletionAttempt((attempt) => attempt + 1);
         return;
       }
 
@@ -370,6 +392,8 @@ export default function CleaningPage({
       setError(
         "Une erreur est survenue lors de la validation.",
       );
+
+      setCompletionAttempt((attempt) => attempt + 1);
     } finally {
       setActionLoading(false);
     }
@@ -488,7 +512,7 @@ export default function CleaningPage({
               </p>
 
               <p className="mt-1 font-medium">
-                 {Intl.DateTimeFormat('fr', { hour: 'numeric', minute: 'numeric', hour12: false }).format(new Date(`1970-01-01T${menage.heure}`))}
+                {Intl.DateTimeFormat('fr', { hour: 'numeric', minute: 'numeric', hour12: false }).format(new Date(`1970-01-01T${menage.heure}`))}
               </p>
             </div>
           </div>
@@ -585,55 +609,55 @@ export default function CleaningPage({
         {/* Boutons */}
         {!isCompleted && !isCancelled && (
           <CardFooter>
-            <div className="flex w-full gap-3">
-              <Button
-                type="button"
-                variant="destructive"
-                className="flex-1"
-                onClick={handleCancel}
-                disabled={actionLoading}
-              >
-                <XIcon />
-                Annuler
-              </Button>
+            {isPending && (
+              <div className="flex w-full flex-col gap-3">
+                <SlideToAction
+                  text="Glisser pour démarrer le ménage"
+                  successText="Ménage démarré"
+                  disabled={actionLoading}
+                  resetKey={startAttempt}
+                  onComplete={handleStart}
+                />
 
-              {isPending && (
                 <Button
                   type="button"
-                  className="flex-1"
-                  onClick={handleStart}
+                  variant="ghost"
+                  className="w-full text-destructive hover:text-destructive"
+                  onClick={handleCancel}
                   disabled={actionLoading}
                 >
-                  {actionLoading ? (
-                    <Loader2Icon className="animate-spin" />
-                  ) : (
-                    <PlayIcon />
-                  )}
-
-                  Démarrer
+                  <XIcon />
+                  Annuler
                 </Button>
-              )}
+              </div>
+            )}
 
-              {isInProgress && (
+            {isInProgress && (
+              <div className="flex w-full flex-col gap-3">
+                <SlideToAction
+                  text={
+                    canComplete
+                      ? "Glisser pour valider le ménage"
+                      : "Disponible une fois les 1h30 écoulées"
+                  }
+                  successText="Ménage validé"
+                  disabled={!canComplete || actionLoading}
+                  resetKey={completionAttempt}
+                  onComplete={handleComplete}
+                />
+
                 <Button
                   type="button"
-                  className="flex-1"
-                  onClick={handleComplete}
-                  disabled={
-                    !canComplete ||
-                    actionLoading
-                  }
+                  variant="ghost"
+                  className="w-full text-destructive hover:text-destructive"
+                  onClick={handleCancel}
+                  disabled={actionLoading}
                 >
-                  {actionLoading ? (
-                    <Loader2Icon className="animate-spin" />
-                  ) : (
-                    <CheckIcon />
-                  )}
-
-                  Valider le ménage
+                  <XIcon />
+                  Annuler
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </CardFooter>
         )}
       </Card>

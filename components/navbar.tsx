@@ -22,16 +22,12 @@ const Navbar = async () => {
 
         <div className="flex items-center gap-3">
           {isAuthenticated ? (
-            <Button variant="outline" className="hidden sm:inline-flex">
-              <Link href="/account">
-                Mon compte
-              </Link>
+            <Button variant="outline" className="hidden sm:inline-flex" render={<Link href={'/account'} />}>
+              Mon compte
             </Button>
           ) : (
-            <Button variant="outline" className="hidden sm:inline-flex">
-              <Link href="/auth/login">
-                Se connecter
-              </Link>
+            <Button variant="outline" className="hidden sm:inline-flex" render={<Link href={'/auth/login'} />}>
+              Se connecter
             </Button>
           )}
 
