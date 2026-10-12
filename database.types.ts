@@ -18,7 +18,6 @@ export type Database = {
         Row: {
           created_at: string
           id: number
-          isAbsent: boolean | null
           maxSlotsPerDay: number | null
           name: string | null
           rotation_parity: string | null
@@ -27,7 +26,6 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: number
-          isAbsent?: boolean | null
           maxSlotsPerDay?: number | null
           name?: string | null
           rotation_parity?: string | null
@@ -36,7 +34,6 @@ export type Database = {
         Update: {
           created_at?: string
           id?: number
-          isAbsent?: boolean | null
           maxSlotsPerDay?: number | null
           name?: string | null
           rotation_parity?: string | null

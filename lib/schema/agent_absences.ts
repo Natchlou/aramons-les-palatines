@@ -2,6 +2,8 @@ import { defineSchema } from "@buildnbuzz/form-core";
 import { addDays, startOfDay } from "date-fns";
 
 const type = [
+  { label: 'École', value: 'ecole'},
+  { label: 'Férié', value: 'ferie'},
   { label: "Congé", value: "conge" },
   { label: "Arrêt maladie", value: "maladie" },
   { label: "Repos", value: "repos" },

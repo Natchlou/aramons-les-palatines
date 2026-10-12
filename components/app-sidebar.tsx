@@ -13,7 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { FeatherIcon, UserIcon, BrushCleaningIcon } from "lucide-react"
+import { FeatherIcon, UserIcon, BrushCleaningIcon, UtensilsIcon } from "lucide-react"
 import Link from "next/link"
 
 const data = {
@@ -36,6 +36,13 @@ const data = {
       icon: (
         <BrushCleaningIcon />
       ),
+    },
+    {
+      title: 'Restaurant',
+      url: "/admin/restaurant",
+      icon: (
+        <UtensilsIcon />
+      )
     }
   ],
 }

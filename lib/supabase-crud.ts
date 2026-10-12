@@ -1,748 +1,911 @@
-import { createClient as createBrowserClient } from './client'
-import { createClient as createServerClient } from './server'
-import { cookies } from 'next/headers'
+import { createClient } from "@/lib/client";
 
 /**
- * Options de filtrage pour les requêtes
+ * Options de filtrage
  */
 export interface FilterOptions<T> {
-  column: keyof T
-  operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'is' | 'in' | 'contains' | 'contained' | 'range'
-  value: any
+  column: keyof T;
+  operator:
+    | "eq"
+    | "neq"
+    | "gt"
+    | "gte"
+    | "lt"
+    | "lte"
+    | "like"
+    | "ilike"
+    | "is"
+    | "in"
+    | "contains"
+    | "contained"
+    | "range";
+  value: unknown;
 }
 
 /**
  * Options de tri
  */
 export interface SortOptions<T> {
-  column: keyof T
-  ascending?: boolean
+  column: keyof T;
+  ascending?: boolean;
 }
 
 /**
  * Options de pagination
  */
 export interface PaginationOptions {
-  limit?: number
-  offset?: number
-  page?: number
-  pageSize?: number
+  limit?: number;
+  offset?: number;
+  page?: number;
+  pageSize?: number;
 }
 
 /**
- * Options de sélection de colonnes
+ * Options de sélection
  */
 export interface SelectOptions<T> {
-  columns?: (keyof T)[]
+  columns?: (keyof T)[];
 }
 
 /**
- * Options pour les requêtes get
+ * Options de requête
  */
 export interface GetOptions<T> {
-  filters?: FilterOptions<T>[]
-  sort?: SortOptions<T>[]
-  pagination?: PaginationOptions
-  select?: SelectOptions<T>
+  filters?: FilterOptions<T>[];
+  sort?: SortOptions<T>[];
+  pagination?: PaginationOptions;
+  select?: SelectOptions<T>;
 }
 
 /**
  * Résultat paginé
  */
 export interface PaginatedResult<T> {
-  data: T[]
-  count: number
-  page: number
-  pageSize: number
-  totalPages: number
-  hasNextPage: boolean
-  hasPreviousPage: boolean
+  data: T[];
+  count: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 }
 
 /**
- * Résultat des opérations CRUD
+ * Résultat CRUD
  */
 export interface CrudResult<T> {
-  success: boolean
-  data?: T | T[] | null
-  error?: Error | null
-  count?: number
+  success: boolean;
+  data?: T | T[] | null;
+  error?: Error | null;
+  count?: number;
 }
 
 /**
- * Classe de base générique pour les opérations CRUD sur Supabase
- * 
- * @example
- * ```typescript
- * // Définir une interface pour votre table
- * interface User {
- *   id: string
- *   name: string
- *   email: string
- *   created_at?: string
- * }
- * 
- * // Créer un service pour la table users
- * const userService = new SupabaseCrud<User>('users')
- * 
- * // Utilisation côté client
- * const users = await userService.getAll()
- * 
- * // Utilisation côté serveur
- * const serverUserService = new SupabaseCrud<User>('users', 'server')
- * const user = await serverUserService.getById('user-123')
- * ```
+ * CRUD Supabase côté client.
+ *
+ * Ce fichier ne doit utiliser QUE le client navigateur.
  */
-export class SupabaseCrud<T extends Record<string, any>, K extends keyof T = 'id'> {
-  private tableName: string
-  private primaryKey: K
-  private clientType: 'client' | 'server'
+export class SupabaseCrud<
+  T extends Record<string, any>,
+  K extends keyof T = "id",
+> {
+  private tableName: string;
+  private primaryKey: K;
 
-  /**
-   * Crée une nouvelle instance du service CRUD
-   * 
-   * @param tableName - Nom de la table dans Supabase
-   * @param primaryKey - Clé primaire de la table (par défaut 'id')
-   * @param clientType - Type de client: 'client' pour le browser, 'server' pour Next.js server components
-   */
   constructor(
     tableName: string,
-    primaryKey: K = 'id' as K,
-    clientType: 'client' | 'server' = 'client'
+    primaryKey: K = "id" as K,
   ) {
-    this.tableName = tableName
-    this.primaryKey = primaryKey
-    this.clientType = clientType
+    this.tableName = tableName;
+    this.primaryKey = primaryKey;
   }
 
   /**
-   * Obtient le client Supabase approprié
+   * Client Supabase navigateur
    */
-  private async getClient() {
-    if (this.clientType === 'server') {
-      return await createServerClient()
-    }
-    return createBrowserClient()
+  private getClient() {
+    return createClient();
   }
 
   /**
-   * Récupère tous les enregistrements d'une table
+   * Récupère tous les enregistrements
    */
-  async getAll(options?: Omit<GetOptions<T>, 'filters' | 'sort' | 'pagination'>): Promise<CrudResult<T[]>> {
+  async getAll(
+    options?: GetOptions<T>,
+  ): Promise<CrudResult<T[]>> {
     try {
-      const client = await this.getClient()
-      
-      let query = client.from(this.tableName).select('*')
-      
-      // Appliquer la sélection de colonnes si spécifiée
-      if (options?.select?.columns && options.select.columns.length > 0) {
-        query = client.from(this.tableName).select(options.select.columns.join(','))
+      const client = this.getClient();
+
+      const columns =
+        options?.select?.columns?.length
+          ? options.select.columns.join(",")
+          : "*";
+
+      let query = client
+        .from(this.tableName)
+        .select(columns);
+
+      if (options?.filters) {
+        for (const filter of options.filters) {
+          query = query.filter(
+            filter.column as string,
+            filter.operator,
+            filter.value,
+          );
+        }
       }
 
-      const { data, error } = await query
-      
-      if (error) {
-        return { success: false, data: null, error }
+      if (options?.sort) {
+        for (const sort of options.sort) {
+          query = query.order(
+            sort.column as string,
+            {
+              ascending: sort.ascending !== false,
+            },
+          );
+        }
       }
-      
-      return { success: true, data: data as T[], error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      if (options?.pagination) {
+        const {
+          limit,
+          offset,
+        } = options.pagination;
+
+        if (offset !== undefined && limit !== undefined) {
+          query = query.range(
+            offset,
+            offset + limit - 1,
+          );
+        } else if (limit !== undefined) {
+          query = query.limit(limit);
+        }
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        return {
+          success: false,
+          data: null,
+          error,
+        };
+      }
+
+      return {
+        success: true,
+        data: data as T[],
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
-   * Récupère tous les enregistrements avec pagination
+   * Récupère les enregistrements avec pagination
    */
   async getAllPaginated(
     pagination: PaginationOptions = {},
-    options?: Omit<GetOptions<T>, 'pagination'>
+    options?: Omit<GetOptions<T>, "pagination">,
   ): Promise<CrudResult<PaginatedResult<T>>> {
     try {
-      const client = await this.getClient()
-      
-      // Calculer les valeurs de pagination
-      const page = pagination.page || 1
-      const pageSize = pagination.pageSize || pagination.limit || 10
-      const offset = pagination.offset || (page - 1) * pageSize
-      
-      let query = client.from(this.tableName).select('*', { count: 'exact' })
-      
-      // Appliquer les filtres
+      const client = this.getClient();
+
+      const page = pagination.page ?? 1;
+      const pageSize =
+        pagination.pageSize ??
+        pagination.limit ??
+        10;
+
+      const offset =
+        pagination.offset ??
+        (page - 1) * pageSize;
+
+      const columns =
+        options?.select?.columns?.length
+          ? options.select.columns.join(",")
+          : "*";
+
+      let query = client
+        .from(this.tableName)
+        .select(columns, {
+          count: "exact",
+        });
+
       if (options?.filters) {
-        options.filters.forEach(filter => {
-          query = query.filter(filter.column as string, filter.operator, filter.value)
-        })
+        for (const filter of options.filters) {
+          query = query.filter(
+            filter.column as string,
+            filter.operator,
+            filter.value,
+          );
+        }
       }
-      
-      // Appliquer le tri
+
       if (options?.sort) {
-        options.sort.forEach(sort => {
-          query = query.order(sort.column as string, { ascending: sort.ascending !== false })
-        })
-      }
-      
-      // Appliquer la sélection de colonnes
-      if (options?.select?.columns && options.select.columns.length > 0) {
-        query = client.from(this.tableName).select(options.select.columns.join(','), { count: 'exact' })
-        
-        // Réappliquer les filtres et le tri
-        if (options.filters) {
-          options.filters.forEach(filter => {
-            query = query.filter(filter.column as string, filter.operator, filter.value)
-          })
-        }
-        
-        if (options.sort) {
-          options.sort.forEach(sort => {
-            query = query.order(sort.column as string, { ascending: sort.ascending !== false })
-          })
+        for (const sort of options.sort) {
+          query = query.order(
+            sort.column as string,
+            {
+              ascending: sort.ascending !== false,
+            },
+          );
         }
       }
-      
-      // Appliquer la pagination
-      const { data, error, count } = await query.range(offset, offset + pageSize - 1)
-      
+
+      const {
+        data,
+        error,
+        count,
+      } = await query.range(
+        offset,
+        offset + pageSize - 1,
+      );
+
       if (error) {
-        return { success: false, data: null, error }
+        return {
+          success: false,
+          data: null,
+          error,
+        };
       }
-      
-      const totalItems = count || 0
-      const totalPages = Math.ceil(totalItems / pageSize)
-      
-      const result: PaginatedResult<T> = {
-        data: data as T[],
-        count: totalItems,
-        page,
-        pageSize,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPreviousPage: page > 1
-      }
-      
-      return { success: true, data: result, error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      const totalItems = count ?? 0;
+      const totalPages =
+        Math.ceil(totalItems / pageSize);
+
+      return {
+        success: true,
+        data: {
+          data: data as T[],
+          count: totalItems,
+          page,
+          pageSize,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1,
+        },
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
-   * Récupère un enregistrement par sa clé primaire
+   * Récupère un enregistrement par son ID
    */
-  async getById(id: T[K]): Promise<CrudResult<T | null>> {
+  async getById(
+    id: T[K],
+  ): Promise<CrudResult<T | null>> {
     try {
-      const client = await this.getClient()
-      
-      const { data, error } = await client
+      const client = this.getClient();
+
+      const {
+        data,
+        error,
+      } = await client
         .from(this.tableName)
-        .select('*')
+        .select("*")
         .eq(this.primaryKey as string, id)
-        .single()
-      
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
-        return { success: false, data: null, error }
+        .maybeSingle();
+
+      if (error) {
+        return {
+          success: false,
+          data: null,
+          error,
+        };
       }
-      
-      return { success: true, data: data as T | null, error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      return {
+        success: true,
+        data: data as T | null,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
-   * Récupère le premier enregistrement correspondant aux filtres
+   * Récupère le premier résultat
    */
-  async getFirst(options?: GetOptions<T>): Promise<CrudResult<T | null>> {
-    try {
-      const client = await this.getClient()
-      
-      let query = client.from(this.tableName).select('*')
-      
-      // Appliquer les filtres
-      if (options?.filters) {
-        options.filters.forEach(filter => {
-          query = query.filter(filter.column as string, filter.operator, filter.value)
-        })
-      }
-      
-      // Appliquer le tri
-      if (options?.sort) {
-        options.sort.forEach(sort => {
-          query = query.order(sort.column as string, { ascending: sort.ascending !== false })
-        })
-      }
-      
-      // Appliquer la sélection de colonnes
-      if (options?.select?.columns && options.select.columns.length > 0) {
-        query = client.from(this.tableName).select(options.select.columns.join(','))
-        
-        // Réappliquer les filtres et le tri
-        if (options.filters) {
-          options.filters.forEach(filter => {
-            query = query.filter(filter.column as string, filter.operator, filter.value)
-          })
-        }
-        
-        if (options.sort) {
-          options.sort.forEach(sort => {
-            query = query.order(sort.column as string, { ascending: sort.ascending !== false })
-          })
-        }
-      }
-      
-      const { data, error } = await query.limit(1).single()
-      
-      if (error && error.code !== 'PGRST116') {
-        return { success: false, data: null, error }
-      }
-      
-      return { success: true, data: data as T | null, error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+  async getFirst(
+    options?: GetOptions<T>,
+  ): Promise<CrudResult<T | null>> {
+    const result = await this.getAll({
+      ...options,
+      pagination: {
+        limit: 1,
+      },
+    });
+
+    if (!result.success) {
+      return {
+        success: false,
+        data: null,
+        error: result.error,
+      };
     }
+
+    return {
+      success: true,
+      data: result.data?.[0] ?? null,
+      error: null,
+    };
   }
 
   /**
-   * Récupère plusieurs enregistrements par leurs IDs
+   * Récupère plusieurs IDs
    */
-  async getByIds(ids: T[K][]): Promise<CrudResult<T[]>> {
+  async getByIds(
+    ids: T[K][],
+  ): Promise<CrudResult<T[]>> {
     try {
-      const client = await this.getClient()
-      
-      const { data, error } = await client
+      const client = this.getClient();
+
+      const {
+        data,
+        error,
+      } = await client
         .from(this.tableName)
-        .select('*')
-        .in(this.primaryKey as string, ids)
-      
+        .select("*")
+        .in(this.primaryKey as string, ids);
+
       if (error) {
-        return { success: false, data: null, error }
+        return {
+          success: false,
+          data: null,
+          error,
+        };
       }
-      
-      return { success: true, data: data as T[], error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      return {
+        success: true,
+        data: data as T[],
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
-   * Récupère des enregistrements avec des filtres personnalisés
+   * Recherche avec filtres
    */
-  async getWithFilters(options?: GetOptions<T>): Promise<CrudResult<T[]>> {
-    try {
-      const client = await this.getClient()
-      
-      let query = client.from(this.tableName).select('*')
-      
-      // Appliquer les filtres
-      if (options?.filters) {
-        options.filters.forEach(filter => {
-          query = query.filter(filter.column as string, filter.operator, filter.value)
-        })
-      }
-      
-      // Appliquer le tri
-      if (options?.sort) {
-        options.sort.forEach(sort => {
-          query = query.order(sort.column as string, { ascending: sort.ascending !== false })
-        })
-      }
-      
-      // Appliquer la sélection de colonnes
-      if (options?.select?.columns && options.select.columns.length > 0) {
-        query = client.from(this.tableName).select(options.select.columns.join(','))
-        
-        // Réappliquer les filtres et le tri
-        if (options.filters) {
-          options.filters.forEach(filter => {
-            query = query.filter(filter.column as string, filter.operator, filter.value)
-          })
-        }
-        
-        if (options.sort) {
-          options.sort.forEach(sort => {
-            query = query.order(sort.column as string, { ascending: sort.ascending !== false })
-          })
-        }
-      }
-      
-      // Appliquer la pagination
-      if (options?.pagination) {
-        const { limit, offset } = options.pagination
-        if (limit !== undefined) {
-          query = query.limit(limit)
-        }
-        if (offset !== undefined) {
-          query = query.range(offset, offset + (limit || 10) - 1)
-        }
-      }
-      
-      const { data, error } = await query
-      
-      if (error) {
-        return { success: false, data: null, error }
-      }
-      
-      return { success: true, data: data as T[], error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
-    }
+  async getWithFilters(
+    options?: GetOptions<T>,
+  ): Promise<CrudResult<T[]>> {
+    return this.getAll(options);
   }
 
   /**
-   * Crée un nouvel enregistrement
+   * Crée un enregistrement
    */
-  async create(item: Omit<T, K>): Promise<CrudResult<T>> {
+  async create(
+    item: Omit<T, K>,
+  ): Promise<CrudResult<T>> {
     try {
-      const client = await this.getClient()
-      
-      const { data, error } = await client
+      const client = this.getClient();
+
+      const {
+        data,
+        error,
+      } = await client
         .from(this.tableName)
         .insert(item as any)
         .select()
-        .single()
-      
+        .single();
+
       if (error) {
-        return { success: false, data: null, error }
+        return {
+          success: false,
+          data: null,
+          error,
+        };
       }
-      
-      return { success: true, data: data as T, error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      return {
+        success: true,
+        data: data as T,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
    * Crée plusieurs enregistrements
    */
-  async createMany(items: Omit<T, K>[]): Promise<CrudResult<T[]>> {
+  async createMany(
+    items: Omit<T, K>[],
+  ): Promise<CrudResult<T[]>> {
     try {
-      const client = await this.getClient()
-      
-      const { data, error } = await client
+      const client = this.getClient();
+
+      const {
+        data,
+        error,
+      } = await client
         .from(this.tableName)
         .insert(items as any)
-        .select()
-      
+        .select();
+
       if (error) {
-        return { success: false, data: null, error }
+        return {
+          success: false,
+          data: null,
+          error,
+        };
       }
-      
-      return { success: true, data: data as T[], error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      return {
+        success: true,
+        data: data as T[],
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
-   * Met à jour un enregistrement par sa clé primaire
+   * Met à jour un enregistrement
    */
-  async update(id: T[K], updates: Partial<T>): Promise<CrudResult<T>> {
+  async update(
+    id: T[K],
+    updates: Partial<T>,
+  ): Promise<CrudResult<T>> {
     try {
-      const client = await this.getClient()
-      
-      const { data, error } = await client
+      const client = this.getClient();
+
+      const {
+        data,
+        error,
+      } = await client
         .from(this.tableName)
         .update(updates as any)
         .eq(this.primaryKey as string, id)
         .select()
-        .single()
-      
+        .single();
+
       if (error) {
-        return { success: false, data: null, error }
+        return {
+          success: false,
+          data: null,
+          error,
+        };
       }
-      
-      return { success: true, data: data as T, error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      return {
+        success: true,
+        data: data as T,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
-   * Met à jour plusieurs enregistrements correspondant aux filtres
+   * Met à jour plusieurs enregistrements
    */
   async updateMany(
     filters: FilterOptions<T>[],
-    updates: Partial<T>
+    updates: Partial<T>,
   ): Promise<CrudResult<T[]>> {
     try {
-      const client = await this.getClient()
-      
-      let query = client.from(this.tableName).update(updates as any)
-      
-      // Appliquer les filtres
-      filters.forEach(filter => {
-        query = query.filter(filter.column as string, filter.operator, filter.value)
-      })
-      
-      const { data, error } = await query.select()
-      
-      if (error) {
-        return { success: false, data: null, error }
+      const client = this.getClient();
+
+      let query = client
+        .from(this.tableName)
+        .update(updates as any);
+
+      for (const filter of filters) {
+        query = query.filter(
+          filter.column as string,
+          filter.operator,
+          filter.value,
+        );
       }
-      
-      return { success: true, data: data as T[], error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      const {
+        data,
+        error,
+      } = await query.select();
+
+      if (error) {
+        return {
+          success: false,
+          data: null,
+          error,
+        };
+      }
+
+      return {
+        success: true,
+        data: data as T[],
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
-   * Remplace complètement un enregistrement
+   * Supprime un enregistrement
    */
-  async replace(id: T[K], newItem: T): Promise<CrudResult<T>> {
+  async delete(
+    id: T[K],
+  ): Promise<CrudResult<T>> {
     try {
-      const client = await this.getClient()
-      
-      const { data, error } = await client
-        .from(this.tableName)
-        .upsert(newItem as any)
-        .eq(this.primaryKey as string, id)
-        .select()
-        .single()
-      
-      if (error) {
-        return { success: false, data: null, error }
-      }
-      
-      return { success: true, data: data as T, error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
-    }
-  }
+      const client = this.getClient();
 
-  /**
-   * Supprime un enregistrement par sa clé primaire
-   */
-  async delete(id: T[K]): Promise<CrudResult<T>> {
-    try {
-      const client = await this.getClient()
-      
-      // D'abord récupérer l'enregistrement avant de le supprimer
-      const { data: existingData, error: fetchError } = await client
+      const {
+        data: existingData,
+        error: fetchError,
+      } = await client
         .from(this.tableName)
-        .select('*')
+        .select("*")
         .eq(this.primaryKey as string, id)
-        .single()
-      
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        return { success: false, data: null, error: fetchError }
+        .maybeSingle();
+
+      if (fetchError) {
+        return {
+          success: false,
+          data: null,
+          error: fetchError,
+        };
       }
-      
+
       if (!existingData) {
-        return { 
-          success: false, 
-          data: null, 
-          error: new Error(`No record found with ${this.primaryKey as string} = ${id}`) 
-        }
+        return {
+          success: false,
+          data: null,
+          error: new Error(
+            `No record found with ${String(this.primaryKey)} = ${String(id)}`,
+          ),
+        };
       }
-      
-      const { error: deleteError } = await client
+
+      const {
+        error: deleteError,
+      } = await client
         .from(this.tableName)
         .delete()
-        .eq(this.primaryKey as string, id)
-      
+        .eq(this.primaryKey as string, id);
+
       if (deleteError) {
-        return { success: false, data: null, error: deleteError }
+        return {
+          success: false,
+          data: null,
+          error: deleteError,
+        };
       }
-      
-      return { success: true, data: existingData as T, error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      return {
+        success: true,
+        data: existingData as T,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
-   * Supprime plusieurs enregistrements par leurs IDs
+   * Supprime plusieurs enregistrements
    */
-  async deleteMany(ids: T[K][]): Promise<CrudResult<T[]>> {
+  async deleteMany(
+    ids: T[K][],
+  ): Promise<CrudResult<T[]>> {
     try {
-      const client = await this.getClient()
-      
-      // D'abord récupérer les enregistrements avant de les supprimer
-      const { data: existingData, error: fetchError } = await client
+      const client = this.getClient();
+
+      const {
+        data: existingData,
+        error: fetchError,
+      } = await client
         .from(this.tableName)
-        .select('*')
-        .in(this.primaryKey as string, ids)
-      
+        .select("*")
+        .in(this.primaryKey as string, ids);
+
       if (fetchError) {
-        return { success: false, data: null, error: fetchError }
+        return {
+          success: false,
+          data: null,
+          error: fetchError,
+        };
       }
-      
-      if (!existingData || existingData.length === 0) {
-        return { 
-          success: false, 
-          data: null, 
-          error: new Error(`No records found with the provided IDs`) 
-        }
+
+      if (!existingData?.length) {
+        return {
+          success: false,
+          data: null,
+          error: new Error(
+            "No records found with the provided IDs",
+          ),
+        };
       }
-      
-      const { error: deleteError } = await client
+
+      const {
+        error: deleteError,
+      } = await client
         .from(this.tableName)
         .delete()
-        .in(this.primaryKey as string, ids)
-      
+        .in(this.primaryKey as string, ids);
+
       if (deleteError) {
-        return { success: false, data: null, error: deleteError }
+        return {
+          success: false,
+          data: null,
+          error: deleteError,
+        };
       }
-      
-      return { success: true, data: existingData as T[], error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      return {
+        success: true,
+        data: existingData as T[],
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
-   * Supprime des enregistrements correspondant aux filtres
+   * Supprime selon des filtres
    */
-  async deleteWithFilters(filters: FilterOptions<T>[]): Promise<CrudResult<T[]>> {
+  async deleteWithFilters(
+    filters: FilterOptions<T>[],
+  ): Promise<CrudResult<T[]>> {
     try {
-      const client = await this.getClient()
-      
-      // D'abord récupérer les enregistrements avant de les supprimer
-      let query = client.from(this.tableName).select('*')
-      
-      filters.forEach(filter => {
-        query = query.filter(filter.column as string, filter.operator, filter.value)
-      })
-      
-      const { data: existingData, error: fetchError } = await query
-      
+      const client = this.getClient();
+
+      let fetchQuery = client
+        .from(this.tableName)
+        .select("*");
+
+      for (const filter of filters) {
+        fetchQuery = fetchQuery.filter(
+          filter.column as string,
+          filter.operator,
+          filter.value,
+        );
+      }
+
+      const {
+        data: existingData,
+        error: fetchError,
+      } = await fetchQuery;
+
       if (fetchError) {
-        return { success: false, data: null, error: fetchError }
+        return {
+          success: false,
+          data: null,
+          error: fetchError,
+        };
       }
-      
-      if (!existingData || existingData.length === 0) {
-        return { 
-          success: false, 
-          data: null, 
-          error: new Error(`No records found with the provided filters`) 
-        }
+
+      if (!existingData?.length) {
+        return {
+          success: false,
+          data: null,
+          error: new Error(
+            "No records found with the provided filters",
+          ),
+        };
       }
-      
-      // Maintenant supprimer avec les mêmes filtres
-      let deleteQuery = client.from(this.tableName).delete()
-      
-      filters.forEach(filter => {
-        deleteQuery = deleteQuery.filter(filter.column as string, filter.operator, filter.value)
-      })
-      
-      const { error: deleteError } = await deleteQuery
-      
+
+      let deleteQuery = client
+        .from(this.tableName)
+        .delete();
+
+      for (const filter of filters) {
+        deleteQuery = deleteQuery.filter(
+          filter.column as string,
+          filter.operator,
+          filter.value,
+        );
+      }
+
+      const {
+        error: deleteError,
+      } = await deleteQuery;
+
       if (deleteError) {
-        return { success: false, data: null, error: deleteError }
+        return {
+          success: false,
+          data: null,
+          error: deleteError,
+        };
       }
-      
-      return { success: true, data: existingData as T[], error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      return {
+        success: true,
+        data: existingData as T[],
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
-   * Compte le nombre d'enregistrements (optionnellement avec des filtres)
+   * Compte les enregistrements
    */
-  async count(filters?: FilterOptions<T>[]): Promise<CrudResult<number>> {
+  async count(
+    filters?: FilterOptions<T>[],
+  ): Promise<CrudResult<number>> {
     try {
-      const client = await this.getClient()
-      
-      let query = client.from(this.tableName).select('*', { count: 'exact', head: true })
-      
+      const client = this.getClient();
+
+      let query = client
+        .from(this.tableName)
+        .select("*", {
+          count: "exact",
+          head: true,
+        });
+
       if (filters) {
-        filters.forEach(filter => {
-          query = query.filter(filter.column as string, filter.operator, filter.value)
-        })
+        for (const filter of filters) {
+          query = query.filter(
+            filter.column as string,
+            filter.operator,
+            filter.value,
+          );
+        }
       }
-      
-      const { count, error } = await query
-      
+
+      const {
+        count,
+        error,
+      } = await query;
+
       if (error) {
-        return { success: false, data: null, error }
+        return {
+          success: false,
+          data: null,
+          error,
+        };
       }
-      
-      return { success: true, data: count || 0, error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      return {
+        success: true,
+        data: count ?? 0,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 
   /**
-   * Vérifie si un enregistrement existe
+   * Vérifie l'existence d'un enregistrement
    */
-  async exists(id: T[K]): Promise<CrudResult<boolean>> {
-    try {
-      const result = await this.getById(id)
-      return { 
-        success: result.success, 
-        data: !!result.data, 
-        error: result.error 
-      }
-    } catch (err) {
-      return { success: false, data: false, error: err as Error }
-    }
+  async exists(
+    id: T[K],
+  ): Promise<CrudResult<boolean>> {
+    const result = await this.getById(id);
+
+    return {
+      success: result.success,
+      data: !!result.data,
+      error: result.error,
+    };
   }
 
   /**
-   * Exécute une requête RPC personnalisée
+   * Appelle une fonction RPC
    */
   async rpc(
     functionName: string,
-    params?: Record<string, any>
+    params?: Record<string, unknown>,
   ): Promise<CrudResult<any>> {
     try {
-      const client = await this.getClient()
-      
-      const { data, error } = await client.rpc(functionName, params || {})
-      
+      const client = this.getClient();
+
+      const {
+        data,
+        error,
+      } = await client.rpc(
+        functionName,
+        params || {},
+      );
+
       if (error) {
-        return { success: false, data: null, error }
+        return {
+          success: false,
+          data: null,
+          error,
+        };
       }
-      
-      return { success: true, data, error: null }
-    } catch (err) {
-      return { success: false, data: null, error: err as Error }
+
+      return {
+        success: true,
+        data,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error as Error,
+      };
     }
   }
 }
 
 /**
- * Fonction utilitaire pour créer un service CRUD côté client
+ * Création d'un CRUD client
  */
-export function createClientCrud<T extends Record<string, any>, K extends keyof T = 'id'>(
+export function createClientCrud<
+  T extends Record<string, any>,
+  K extends keyof T = "id",
+>(
   tableName: string,
-  primaryKey: K = 'id' as K
+  primaryKey: K = "id" as K,
 ) {
-  return new SupabaseCrud<T, K>(tableName, primaryKey, 'client')
+  return new SupabaseCrud<T, K>(
+    tableName,
+    primaryKey,
+  );
 }
 
-/**
- * Fonction utilitaire pour créer un service CRUD côté serveur
- */
-export function createServerCrud<T extends Record<string, any>, K extends keyof T = 'id'>(
-  tableName: string,
-  primaryKey: K = 'id' as K
-) {
-  return new SupabaseCrud<T, K>(tableName, primaryKey, 'server')
-}
-
-/**
- * Type utilitaire pour créer une interface de table Supabase
- * 
- * @example
- * ```typescript
- * // Utilisation dans votre code
- * type User = {
- *   id: string
- *   name: string
- *   email: string
- * }
- * 
- * type UserTable = SupabaseTableType<User>
- * const userCrud = new SupabaseCrud<UserTable>('users')
- * ```
- */
 export type SupabaseTableType<T> = T & {
-  created_at?: string
-  updated_at?: string
-}
+  created_at?: string;
+  updated_at?: string;
+};
 
-export default SupabaseCrud
+export default SupabaseCrud;

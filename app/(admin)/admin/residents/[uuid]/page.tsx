@@ -79,7 +79,7 @@ export default async function AdminResidentShow({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_350px]">
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_350px]">
 
                 {/* ===== Colonne principale ===== */}
                 <div className="flex flex-col gap-4">

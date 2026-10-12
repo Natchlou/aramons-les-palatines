@@ -18,9 +18,6 @@ export const columns = columnHelper.columns([
   columnHelper.accessor("working_days", {
     header: "Jours de travail",
   }),
-  columnHelper.accessor("isAbsent", {
-    header: "Absent ?",
-  }),
   columnHelper.accessor("maxSlotsPerDay", {
     header: "Ménage par jours",
   }),

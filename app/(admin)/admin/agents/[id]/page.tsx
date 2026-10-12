@@ -26,8 +26,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 
 type AgentRow = Database["public"]["Tables"]["agent"]["Row"]
-type AgentAbsencesRow =
-    Database["public"]["Tables"]["agent_absences"]["Row"]
+type AgentAbsencesRow = Database["public"]["Tables"]["agent_absences"]["Row"]
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "full",
@@ -70,6 +69,9 @@ export default async function AdminAgentShow({
                     value: id,
                 },
             ],
+            sort: [
+                { column: 'start_date'}
+            ]
         }),
     ])
 
@@ -130,14 +132,14 @@ export default async function AdminAgentShow({
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_350px]">
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_350px]">
                 {/* Absences */}
                 <Card>
                     <CardHeader>
                         <CardTitle>Absences / Congés</CardTitle>
 
                         <CardAction>
-                            <AgentForm />
+                            <AgentForm agent_id={agent.id}/>
                         </CardAction>
                     </CardHeader>
 
@@ -206,20 +208,6 @@ export default async function AdminAgentShow({
                     <CardContent className="text-sm">
                         <DataList
                             data={[
-                                {
-                                    title: "Actuellement absent ?",
-                                    value: (
-                                        <Badge
-                                            variant={
-                                                agent.isAbsent
-                                                    ? "destructive"
-                                                    : "outline"
-                                            }
-                                        >
-                                            {agent.isAbsent ? "Oui" : "Non"}
-                                        </Badge>
-                                    ),
-                                },
                                 {
                                     title: "Jours de travail",
                                     value: agent.working_days?.length ? (
