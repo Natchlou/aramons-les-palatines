@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { PushSubscribeButton } from "@/components/notifications/push-subscribe-button";
 
 export default async function AccountPage() {
   const supabase = await createClient();
@@ -88,6 +89,7 @@ export default async function AccountPage() {
                 Actif
               </div>
             </div>
+            <PushSubscribeButton />
           </CardContent>
         </Card>
 

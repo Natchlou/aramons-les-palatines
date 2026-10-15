@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     title: "Aramons",
   },
   icons: {
-    apple: "/icons/icon-192.png",
+    apple: "/icons/180.png",
   },
 };
 
