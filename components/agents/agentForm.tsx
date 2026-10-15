@@ -22,15 +22,12 @@ import { PlusIcon } from "lucide-react";
 import SupabaseCrud from "@/lib/supabase-crud";
 import { Database } from "@/database.types";
 
-type AgentAbsences =
-  Database["public"]["Tables"]["agent_absences"]["Row"];
-
 type AgentAbsencesInsert =
   Database["public"]["Tables"]["agent_absences"]["Insert"];
 
 export default function AgentForm({agent_id}: {agent_id: number}) {
   const agentAbsencesService =
-    new SupabaseCrud<AgentAbsences>(
+    new SupabaseCrud<AgentAbsencesInsert>(
       "agent_absences",
     );
 

@@ -18,6 +18,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Résidence Séniors Aramons Les Palatines",
   description: "Planning automatisé",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Aramons",
+  },
+  icons: {
+    apple: "/icons/icon-192.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -25,6 +33,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#171717"
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     // 4. Générer le PDF
     const buffer = await renderToBuffer(
-      CleaningPlanningPdf({ schedule }) as any,
+      CleaningPlanningPdf({ schedule }),
     );
 
     // 5. Nom du fichier

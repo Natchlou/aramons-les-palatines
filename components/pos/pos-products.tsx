@@ -33,25 +33,20 @@ export default function PosProducts({
 
     return (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-            {products.map((product) => {
-                const Icon = product.icon
-                return (<Card
+            {products.map((product) => (
+                <Card
                     key={product.id}
                     className="group overflow-hidden transition-colors hover:border-primary/50"
                 >
                     <CardContent className="p-0">
                         <div className="flex aspect-square items-center justify-center bg-muted/40">
-                            <Icon className="size-30" strokeWidth={1.8} />
+                            <span className="text-3xl uppercase font-bold text-center">{product.name}</span>
                         </div>
 
                         <div className="space-y-3 p-3">
                             <div>
-                                <p className="truncate font-medium">
-                                    {product.name}
-                                </p>
-
-                                <p className="text-xs text-muted-foreground">
-                                    {formatter.format(product.price)}
+                                <p className="text-muted-foreground text-center">
+                                    {formatter.format(product.price / 100)}
                                 </p>
                             </div>
 
@@ -66,8 +61,8 @@ export default function PosProducts({
                         </div>
                     </CardContent>
                 </Card>
-                )
-            })}
+            )
+            )}
         </div>
     )
 }

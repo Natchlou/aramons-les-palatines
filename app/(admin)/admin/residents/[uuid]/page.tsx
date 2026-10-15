@@ -1,4 +1,5 @@
 import DataList from "@/components/data-list"
+import GenerateResidentReportPdf from "@/components/generate-resident-report-pdf"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -21,7 +22,7 @@ export default async function AdminResidentShow({
     params: Promise<{ uuid: string }>
 }) {
     const { uuid } = await params
-
+    const now = new Date();
     const supabase = await createClient()
 
     const { data: resident, error: errorResident } = await supabase
@@ -62,7 +63,7 @@ export default async function AdminResidentShow({
     return (
         <div className="mx-auto w-full max-w-7xl px-4 py-8 font-sans gap-6">
             {/* ===== En-tête : identité ===== */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <div className="flex items-center gap-4">
                     <Image src={'/default.png'} alt="" width={256} height={256} className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-xl font-semibold text-primary" />
                     <div>
@@ -76,6 +77,11 @@ export default async function AdminResidentShow({
                     <Button variant={'link'}>
                         <Link href={'/admin/residents'} className="flex items-center gap-1"><ArrowLeftIcon /> Retour</Link>
                     </Button>
+                    <GenerateResidentReportPdf
+                        residentIds={[uuid]}
+                        month={now.getMonth()}
+                        year={now.getFullYear()}
+                    />
                 </div>
             </div>
 

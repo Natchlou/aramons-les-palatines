@@ -3,10 +3,12 @@ import { columns } from "./columns";
 import ResidentForm from "@/components/resident/form";
 import { Database } from "@/database.types";
 import SupabaseCrud from "@/lib/supabase-crud";
+import GenerateResidentReportPdf from "@/components/generate-resident-report-pdf";
 
 type ResidentRow = Database['public']['Tables']['residents']['Row'];
 
 export default async function AdminResidentsPage() {
+  const now = new Date()
   const residentsService = new SupabaseCrud<ResidentRow>("residents")
 
   const residents = await residentsService.getWithFilters({
@@ -31,7 +33,13 @@ export default async function AdminResidentsPage() {
           Liste des résidents
         </h1>
 
-        <ResidentForm />
+        <div className="flex justify-end items-center gap-2">
+          <ResidentForm />
+          <GenerateResidentReportPdf
+            month={now.getMonth() + 1}
+            year={now.getFullYear()}
+          />
+        </div>
       </div>
 
       {residentsData?.length === 0 ? (

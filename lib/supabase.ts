@@ -9,7 +9,6 @@
 export { 
   SupabaseCrud,
   createClientCrud,
-  createServerCrud
 } from './supabase-crud'
 
 // Types depuis supabase-crud

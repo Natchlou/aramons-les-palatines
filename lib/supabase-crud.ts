@@ -84,10 +84,18 @@ export interface CrudResult<T> {
  * CRUD Supabase côté client.
  *
  * Ce fichier ne doit utiliser QUE le client navigateur.
+ *
+ * Paramètres génériques :
+ * - T : type de ligne (Row)
+ * - K : clé primaire (par défaut "id")
+ * - TInsert : type accepté à la création (par défaut Omit<T, K>).
+ *   Passer le type `Insert` généré par Supabase pour que les colonnes
+ *   avec valeur par défaut (created_at, etc.) soient optionnelles.
  */
 export class SupabaseCrud<
   T extends Record<string, any>,
   K extends keyof T = "id",
+  TInsert extends Record<string, any> = Omit<T, K>,
 > {
   private tableName: string;
   private primaryKey: K;
@@ -174,7 +182,7 @@ export class SupabaseCrud<
 
       return {
         success: true,
-        data: data as T[],
+        data: data as unknown as T[],
         error: null,
       };
     } catch (error) {
@@ -262,7 +270,7 @@ export class SupabaseCrud<
       return {
         success: true,
         data: {
-          data: data as T[],
+          data: data as unknown as T[],
           count: totalItems,
           page,
           pageSize,
@@ -401,7 +409,7 @@ export class SupabaseCrud<
    * Crée un enregistrement
    */
   async create(
-    item: Omit<T, K>,
+    item: TInsert,
   ): Promise<CrudResult<T>> {
     try {
       const client = this.getClient();
@@ -441,7 +449,7 @@ export class SupabaseCrud<
    * Crée plusieurs enregistrements
    */
   async createMany(
-    items: Omit<T, K>[],
+    items: TInsert[],
   ): Promise<CrudResult<T[]>> {
     try {
       const client = this.getClient();
@@ -893,11 +901,12 @@ export class SupabaseCrud<
 export function createClientCrud<
   T extends Record<string, any>,
   K extends keyof T = "id",
+  TInsert extends Record<string, any> = Omit<T, K>,
 >(
   tableName: string,
   primaryKey: K = "id" as K,
 ) {
-  return new SupabaseCrud<T, K>(
+  return new SupabaseCrud<T, K, TInsert>(
     tableName,
     primaryKey,
   );

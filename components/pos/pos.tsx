@@ -13,34 +13,7 @@ import type {
     Product,
 } from "./types"
 
-import {
-    Coffee,
-    GlassWater,
-    CakeSlice,
-} from "lucide-react"
-
-const products: Product[] = [
-    {
-        id: "menu",
-        name: "Menu classique",
-        price: 12.5,
-        icon: CakeSlice
-    },
-    {
-        id: "cafe",
-        name: "Café",
-        price: 1.5,
-        icon: Coffee 
-    },
-    {
-        id: 'champagne',
-        name: 'Coupe de champagne',
-        price: 5.5,
-        icon: GlassWater
-    }
-]
-
-export default function Pos() {
+export default function Pos({products}: {products: Product[]}) {
     const [cart, setCart] = useState<CartItem[]>([])
 
     const addToCart = (product: Product) => {

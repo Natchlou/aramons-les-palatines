@@ -81,20 +81,33 @@ export function NumberField() {
     : undefined;
 
   // Display value for thousand separator mode
-  const [displayValue, setDisplayValue] = React.useState<string>(() =>
-    thousandSeparator && typeof value === "number"
-      ? formatNumberWithSeparator(value, sep)
-      : "",
-  );
+  const [displayState, setDisplayState] = React.useState(() => ({
+    value,
+    thousandSeparator,
+    sep,
+    displayValue:
+      thousandSeparator && typeof value === "number"
+        ? formatNumberWithSeparator(value, sep)
+        : "",
+  }));
 
-  // Sync display value when external value changes
-  React.useEffect(() => {
-    if (thousandSeparator && typeof value === "number") {
-      setDisplayValue(formatNumberWithSeparator(value, sep));
-    } else if (thousandSeparator && value === undefined) {
-      setDisplayValue("");
-    }
-  }, [value, thousandSeparator, sep]);
+  // Reconcile the draft with external changes without an effect-driven render.
+  if (
+    displayState.value !== value ||
+    displayState.thousandSeparator !== thousandSeparator ||
+    displayState.sep !== sep
+  ) {
+    setDisplayState({
+      value,
+      thousandSeparator,
+      sep,
+      displayValue:
+        thousandSeparator && typeof value === "number"
+          ? formatNumberWithSeparator(value, sep)
+          : "",
+    });
+  }
+  const displayValue = displayState.displayValue;
 
   const handleChange = (val: number | undefined) => {
     if (isReadOnly) return;
@@ -125,14 +138,19 @@ export function NumberField() {
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const inputVal = e.target.value;
-    setDisplayValue(inputVal);
     const parsed = parseFormattedNumber(inputVal, sep);
+    setDisplayState({ value, thousandSeparator, sep, displayValue: inputVal });
     handleChange(parsed);
   };
 
   const handleFormattedInputBlur = () => {
     if (typeof value === "number") {
-      setDisplayValue(formatNumberWithSeparator(value, sep));
+      setDisplayState({
+        value,
+        thousandSeparator,
+        sep,
+        displayValue: formatNumberWithSeparator(value, sep),
+      });
     }
     handleBlur();
   };

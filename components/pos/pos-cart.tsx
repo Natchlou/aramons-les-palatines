@@ -27,6 +27,13 @@ const formatter = new Intl.NumberFormat("fr-FR", {
     currency: "EUR",
 })
 
+const formatPrice = (priceInCents: number) => {
+    return new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "EUR",
+    }).format(priceInCents / 100)
+}
+
 export default function PosCart({
     items,
     onIncrease,
@@ -110,7 +117,7 @@ export default function PosCart({
                                     </p>
 
                                     <p className="text-sm text-muted-foreground">
-                                        {formatter.format(item.price)}
+                                        {formatPrice(item.price)}
                                     </p>
                                 </div>
 
@@ -152,7 +159,7 @@ export default function PosCart({
                                 </div>
 
                                 <span className="font-semibold">
-                                    {formatter.format(
+                                    {formatPrice(
                                         item.price * item.quantity,
                                     )}
                                 </span>
@@ -171,7 +178,7 @@ export default function PosCart({
                         </p>
 
                         <p className="text-3xl font-bold tracking-tight">
-                            {formatter.format(total)}
+                            {formatPrice(total)}
                         </p>
                     </div>
 
@@ -189,7 +196,7 @@ export default function PosCart({
                     disabled={items.length === 0}
                     onClick={onSubmit}
                 >
-                    Enregistrer {formatter.format(total)}
+                    Enregistrer {formatPrice(total)}
                 </Button>
             </div>
         </aside>
