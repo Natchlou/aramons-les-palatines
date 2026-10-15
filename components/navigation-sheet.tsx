@@ -1,5 +1,10 @@
+
+"use client";
+
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Menu } from "lucide-react";
+import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -10,17 +15,62 @@ import {
 import { Logo } from "@/components/logo";
 import { NavMenu } from "@/components/nav-menu";
 
-export const NavigationSheet = () => {
+type NavigationSheetProps = {
+  isAuthenticated: boolean;
+};
+
+export const NavigationSheet = ({
+  isAuthenticated,
+}: NavigationSheetProps) => {
   return (
     <Sheet>
-      <VisuallyHidden>
-        <SheetTitle>Menu de navigation</SheetTitle>
-      </VisuallyHidden>
+      <SheetTrigger
+        render={
+          <Button
+            size="icon"
+            variant="outline"
+            aria-label="Ouvrir le menu de navigation"
+          />
+        }
+      >
+        <Menu className="size-5" />
+      </SheetTrigger>
 
-      <SheetTrigger render={<Button size="icon" variant="outline" />}><Menu /></SheetTrigger>
-      <SheetContent className="px-6 py-3">
+      <SheetContent side="right" className="w-75 px-6 py-5">
+        <VisuallyHidden>
+          <SheetTitle>Menu de navigation</SheetTitle>
+        </VisuallyHidden>
+
         <Logo />
-        <NavMenu className="mt-6 [&>div]:h-full" orientation="vertical" />
+
+        <nav className="mt-8">
+          <NavMenu
+            orientation="vertical"
+            className="w-full [&>div]:h-auto"
+          />
+        </nav>
+
+        <div className="mt-6 flex flex-col gap-3 border-t pt-5">
+          {isAuthenticated ? (
+            <Button
+              variant="outline"
+              className="w-full"
+            >
+              <Link href="/account">
+                Mon compte
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full"
+            >
+              <Link href="/auth/login">
+                Se connecter
+              </Link>
+            </Button>
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   );

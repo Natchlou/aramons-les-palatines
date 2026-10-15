@@ -33,6 +33,7 @@ export default function Contact() {
                             width={768}
                             height={768}
                             className="aspect-square w-full object-cover"
+                            loading="eager"
                         />
 
                         <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent" />
