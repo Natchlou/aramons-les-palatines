@@ -1,14 +1,16 @@
 import { DataTable } from "@/components/data-table";
 import { columns } from "./columns";
 import { Database } from "@/database.types";
-import SupabaseCrud from "@/lib/supabase-crud";
+import SupabaseCrud from "@/lib/supabase";
+import { createClient } from "@/lib/client";
 
 type ProductRow = Database['public']['Tables']['products']['Row'];
 
 export default async function AdminRestaurantPage() {
-  const restaurantService = new SupabaseCrud<ProductRow>("products")
+  const supabase = createClient()
+  const restaurantService = new SupabaseCrud<ProductRow>(supabase, "products")
 
-  const products = await restaurantService.getAll()
+  const products = await restaurantService.getAll({sort: [{column: 'id'}]})
   const productsData = products.data as ProductRow[] | null | undefined
 
   if (products.error) {

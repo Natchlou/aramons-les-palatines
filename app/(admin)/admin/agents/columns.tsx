@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EyeIcon } from "lucide-react";
 import Link from "next/link";
 
-type AgentRow = Database['public']['Tables']['agent']['Row'];
+type AgentRow = Database['public']['Tables']['agents']['Row'];
 
 const columnHelper = createColumnHelper<DataTableFeatures, AgentRow>();
 

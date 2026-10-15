@@ -4,17 +4,88 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
 import type { Database } from "@/database.types"
-import { createClient } from "@/lib/server"
-import { ArrowLeftIcon } from "lucide-react"
+import { createClient } from "@/lib/client"
+import SupabaseCrud, { desc, eq, inList } from "@/lib/supabase"
+import {
+    ArrowLeft,
+    CalendarDays,
+    CheckCircle2,
+    Clock,
+    Users,
+    XCircle,
+} from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 
-// Types
-type ResidentRow = Database['public']['Tables']['residents']['Row'];
-type ConstraintRow = Database['public']['Tables']['constraintes']['Row'];
-type RecentMenageRow = Database['public']['Tables']['recents_menages']['Row'];
+type ResidentRow = Database["public"]["Tables"]["residents"]["Row"]
+type AgentRow = Database["public"]["Tables"]["agents"]["Row"]
+type ConstraintRow = Database["public"]["Tables"]["constraintes"]["Row"]
+type RecentMenageRow =
+    Database["public"]["Tables"]["recents_menages"]["Row"]
+
+const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "medium",
+})
+
+function formatDate(value: string | null) {
+    if (!value) return "—"
+
+    return dateFormatter.format(new Date(`${value.slice(0, 10)}T12:00:00`))
+}
+
+function formatTime(value: string | null) {
+    if (!value) return "—"
+
+    return value.slice(0, 5)
+}
+
+function formatDuration(minutes: number | null) {
+    if (minutes == null) return "—"
+
+    const hours = Math.floor(minutes / 60)
+    const remainingMinutes = minutes % 60
+
+    if (hours === 0) return `${remainingMinutes} min`
+
+    return remainingMinutes
+        ? `${hours} h ${remainingMinutes} min`
+        : `${hours} h`
+}
+
+function getStatusVariant(status: string) {
+    switch (status) {
+        case "COMPLETED":
+            return "default" as const
+        case "IN_PROGRESS":
+            return "secondary" as const
+        case "CANCELLED":
+        case "RESCHEDULED":
+            return "destructive" as const
+        default:
+            return "outline" as const
+    }
+}
+
+function getStatusLabel(status: string) {
+    const labels: Record<string, string> = {
+        PENDING: "En attente",
+        IN_PROGRESS: "En cours",
+        COMPLETED: "Terminé",
+        CANCELLED: "Annulé",
+        RESCHEDULED: "Reprogrammé",
+    }
+
+    return labels[status] ?? status
+}
 
 export default async function AdminResidentShow({
     params,
@@ -22,61 +93,147 @@ export default async function AdminResidentShow({
     params: Promise<{ uuid: string }>
 }) {
     const { uuid } = await params
-    const now = new Date();
-    const supabase = await createClient()
+    const now = new Date()
+    const supabase = createClient()
 
-    const { data: resident, error: errorResident } = await supabase
-        .from("residents")
-        .select("*")
-        .eq('id', uuid)
-        .single<ResidentRow>();
+    const residentService = new SupabaseCrud<ResidentRow>(supabase, "residents")
+    const constraintesService =
+        new SupabaseCrud<ConstraintRow>(supabase, "constraintes")
+    const menagesService =
+        new SupabaseCrud<RecentMenageRow>(supabase, "recents_menages")
 
-    const { data: constraintes, error: errorConstraintes } = await supabase
-        .from('constraintes')
-        .select('*')
-        .eq('resident_id', uuid)
-        .maybeSingle<ConstraintRow>();
+    // Chargement des informations du résident et de son historique.
+    const [residentResult, constraintesResult, menagesResult] =
+        await Promise.all([
+            residentService.getById(uuid),
+            constraintesService.getFirst({
+                filters: [
+                    {
+                        column: "resident_id",
+                        operator: "eq",
+                        value: uuid,
+                    },
+                ]
+            }),
+            menagesService.getWithFilters({
+                filters: [eq("resident_id", uuid)],
+                sort: [desc("date"), desc("heure")],
+            }),
+        ])
 
-    const { data: recents_menages, error: errorRecentsMenage } = await supabase
-        .from('recents_menages')
-        .select('*')
-        .eq('resident_id', uuid);
+    if (
+        residentResult.error ||
+        constraintesResult.error ||
+        menagesResult.error
+    ) {
+        const error =
+            residentResult.error ??
+            constraintesResult.error ??
+            menagesResult.error
 
-    if (errorResident || errorConstraintes || errorRecentsMenage) {
         return (
-            <div className="flex flex-1 items-center justify-center">
+            <div className="flex flex-1 items-center justify-center p-8">
                 <p className="text-destructive">
-                    Une erreur est survenue : {errorResident?.message} {errorConstraintes?.message} {errorRecentsMenage?.message}
+                    Une erreur est survenue : {error?.message}
                 </p>
             </div>
-        );
+        )
     }
 
-    function splitCamelCaseArray(daysArray: string[]): string[] {
-        return daysArray.flatMap(dayString =>
-            dayString.split(/(?=[A-Z])/).map(day =>
-                day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()
-            )
-        );
+    const resident = residentResult.data
+    const constraintes = constraintesResult.data
+    const menages = menagesResult.data ?? []
+
+    // Récupération des agents associés aux ménages.
+    // La relation peut être ajoutée directement à Supabase
+    // ultérieurement si nécessaire.
+    const agentIds = [
+        ...new Set(
+            menages
+                .map((menage) => menage.agent_id)
+                .filter((id): id is number => id !== null),
+        ),
+    ]
+
+    let agents: AgentRow[] = []
+
+    if (agentIds.length > 0) {
+        const { data, error } = await new SupabaseCrud<AgentRow>(supabase, "agents")
+            .getAll({
+                filters: [inList("id", agentIds)],
+            })
+
+        if (!error && data) {
+            agents = data
+        }
+    }
+
+    const agentNames = new Map(
+        agents.map((agent) => [agent.id, agent.name]),
+    )
+
+    const completedCount = menages.filter(
+        (menage) => menage.statut === "COMPLETED",
+    ).length
+
+    const pendingCount = menages.filter(
+        (menage) => menage.statut === "PENDING",
+    ).length
+
+    const cancelledCount = menages.filter(
+        (menage) => menage.statut === "CANCELLED",
+    ).length
+
+    function splitCamelCaseArray(days: string[]): string[] {
+        return days.flatMap((value) =>
+            value.split(/(?=[A-Z])/).map(
+                (day) => day.charAt(0).toUpperCase() + day.slice(1).toLowerCase(),
+            ),
+        )
+    }
+
+    if (!resident) {
+        return (
+            <div className="flex flex-1 items-center justify-center p-8">
+                <p className="text-muted-foreground">
+                    Résident introuvable.
+                </p>
+            </div>
+        )
     }
 
     return (
-        <div className="mx-auto w-full max-w-7xl px-4 py-8 font-sans gap-6">
-            {/* ===== En-tête : identité ===== */}
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+        <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8">
+            {/* En-tête */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <Image src={'/default.png'} alt="" width={256} height={256} className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-xl font-semibold text-primary" />
+                    <Image
+                        src="/default.png"
+                        alt=""
+                        width={64}
+                        height={64}
+                        className="size-16 rounded-full bg-primary/10 object-cover"
+                    />
+
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            {resident.prefix} {resident.last_name} {resident.first_name}
+                        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                            {resident.prefix} {resident.last_name}{" "}
+                            {resident.first_name}
                         </h1>
-                        <p className="text-sm text-muted-foreground">Fiche du résident</p>
+                        <p className="text-sm text-muted-foreground">
+                            Fiche du résident · Chambre {resident.room}
+                        </p>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant={'link'}>
-                        <Link href={'/admin/residents'} className="flex items-center gap-1"><ArrowLeftIcon /> Retour</Link>
+
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="link">
+                        <Link href="/admin/residents">
+                            <ArrowLeft className="mr-2 size-4" />
+                            Retour
+                        </Link>
                     </Button>
+
                     <GenerateResidentReportPdf
                         residentIds={[uuid]}
                         month={now.getMonth()}
@@ -85,85 +242,280 @@ export default async function AdminResidentShow({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_350px]">
+            {/* Statistiques */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                    <CardContent className="flex items-center justify-between p-5">
+                        <div>
+                            <p className="text-sm text-muted-foreground">
+                                Total des ménages
+                            </p>
+                            <p className="text-2xl font-bold">
+                                {menages.length}
+                            </p>
+                        </div>
+                        <CalendarDays className="size-8 text-muted-foreground" />
+                    </CardContent>
+                </Card>
 
-                {/* ===== Colonne principale ===== */}
-                <div className="flex flex-col gap-4">
+                <Card>
+                    <CardContent className="flex items-center justify-between p-5">
+                        <div>
+                            <p className="text-sm text-muted-foreground">
+                                Terminés
+                            </p>
+                            <p className="text-2xl font-bold">
+                                {completedCount}
+                            </p>
+                        </div>
+                        <CheckCircle2 className="size-8 text-muted-foreground" />
+                    </CardContent>
+                </Card>
 
-                    {constraintes && (constraintes.disallow_days || constraintes.schedule_hours) ? <Alert variant={'destructive'}>
-                        <AlertTitle>Attention ce résident à des contraintes de ménages</AlertTitle>
-                        <AlertDescription>
-                            {constraintes.disallow_days ? <p>Jour de ménage : {splitCamelCaseArray(constraintes.disallow_days)}</p> : ''}
-                            {constraintes.schedule_hours ? <p>Heure du ménage : {constraintes.schedule_hours}</p> : ''}
+                <Card>
+                    <CardContent className="flex items-center justify-between p-5">
+                        <div>
+                            <p className="text-sm text-muted-foreground">
+                                En attente
+                            </p>
+                            <p className="text-2xl font-bold">
+                                {pendingCount}
+                            </p>
+                        </div>
+                        <Clock className="size-8 text-muted-foreground" />
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardContent className="flex items-center justify-between p-5">
+                        <div>
+                            <p className="text-sm text-muted-foreground">
+                                Annulés
+                            </p>
+                            <p className="text-2xl font-bold">
+                                {cancelledCount}
+                            </p>
+                        </div>
+                        <XCircle className="size-8 text-muted-foreground" />
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Contraintes */}
+            {constraintes &&
+                (constraintes.disallow_days ||
+                    constraintes.schedule_hours) && (
+                    <Alert variant="destructive">
+                        <AlertTitle>
+                            Contraintes de ménage
+                        </AlertTitle>
+                        <AlertDescription className="space-y-1">
+                            {constraintes.disallow_days && (
+                                <p>
+                                    Jours concernés :{" "}
+                                    {splitCamelCaseArray(
+                                        constraintes.disallow_days,
+                                    ).join(", ")}
+                                </p>
+                            )}
+
+                            {constraintes.schedule_hours && (
+                                <p>
+                                    Horaires : {constraintes.schedule_hours}
+                                </p>
+                            )}
                         </AlertDescription>
-                    </Alert> : ''}
+                    </Alert>
+                )}
 
+            <div className="grid items-start gap-6 lg:grid-cols-[1fr_320px]">
+                {/* Historique */}
+                <Card className="min-w-0">
+                    <CardHeader>
+                        <CardTitle>Historique des ménages</CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                            Tous les créneaux enregistrés, y compris les
+                            annulations et les reprogrammations.
+                        </p>
+                    </CardHeader>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Ménages récents</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {recents_menages.length > 0 ? (
+                    <CardContent>
+                        {menages.length === 0 ? (
+                            <div className="py-10 text-center">
+                                <CalendarDays className="mx-auto mb-3 size-10 text-muted-foreground" />
+                                <p className="font-medium">
+                                    Aucun ménage enregistré
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    L&apos;historique apparaîtra ici.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Date</TableHead>
                                             <TableHead>Heure</TableHead>
+                                            <TableHead>Agent</TableHead>
                                             <TableHead>Statut</TableHead>
+                                            <TableHead>Durée</TableHead>
                                             <TableHead className="text-right">
-                                                Actions
+                                                Détails
                                             </TableHead>
                                         </TableRow>
                                     </TableHeader>
 
                                     <TableBody>
-                                        {recents_menages.map((item: RecentMenageRow) => (
+                                        {menages.map((item) => (
                                             <TableRow key={item.id}>
-                                                <TableCell className="font-medium">
-                                                    {Intl.DateTimeFormat('fr', { dateStyle: 'full' }).format(new Date(item.date as string))}
+                                                <TableCell className="whitespace-nowrap font-medium">
+                                                    {formatDate(item.date)}
                                                 </TableCell>
+
                                                 <TableCell>
-                                                    {Intl.DateTimeFormat('fr', { hour: 'numeric', minute: 'numeric', hour12: false }).format(new Date(`1970-01-01T${item.heure}`))}
+                                                    {formatTime(item.heure)}
                                                 </TableCell>
+
                                                 <TableCell>
-                                                    {item.statut}
+                                                    {item.agent_id
+                                                        ? agentNames.get(item.agent_id) ??
+                                                        "Agent introuvable"
+                                                        : "Non attribué"}
                                                 </TableCell>
+
+                                                <TableCell>
+                                                    <Badge
+                                                        variant={getStatusVariant(
+                                                            item.statut ?? "PENDING",
+                                                        )}
+                                                    >
+                                                        {getStatusLabel(
+                                                            item.statut ?? "PENDING",
+                                                        )}
+                                                    </Badge>
+                                                </TableCell>
+
+                                                <TableCell className="whitespace-nowrap">
+                                                    {formatDuration(
+                                                        item.duration_minutes,
+                                                    )}
+                                                </TableCell>
+
                                                 <TableCell className="text-right">
-                                                    <Link href={`/admin/residents/${resident.id}/${item.id}`}>
-                                                        Voir en détail
-                                                    </Link>
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                    >
+                                                        <Link
+                                                            href={`/admin/residents/${resident.id}/${item.id}`}
+                                                        >
+                                                            Voir
+                                                        </Link>
+                                                    </Button>
                                                 </TableCell>
+
+                                                {(item.cancellation_reason ||
+                                                    item.completion_reason) && (
+                                                        <TableCell
+                                                            colSpan={6}
+                                                            className="whitespace-normal bg-muted/30 text-sm text-muted-foreground"
+                                                        >
+                                                            {item.cancellation_reason && (
+                                                                <p>
+                                                                    <strong>
+                                                                        Motif d&apos;annulation :
+                                                                    </strong>{" "}
+                                                                    {item.cancellation_reason}
+                                                                </p>
+                                                            )}
+
+                                                            {item.completion_reason && (
+                                                                <p>
+                                                                    <strong>
+                                                                        Motif de durée :
+                                                                    </strong>{" "}
+                                                                    {item.completion_reason}
+                                                                </p>
+                                                            )}
+                                                        </TableCell>
+                                                    )}
                                             </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>
-                            ) : (
-                                <p className="text-sm text-muted-foreground">Aucun ménage récent enregistré.</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
-                {/* ===== Colonne latérale ===== */}
+                {/* Informations */}
                 <div className="flex flex-col gap-4">
-
-                    {/* Propriétés / contact */}
                     <Card>
                         <CardHeader>
                             <CardTitle>Informations</CardTitle>
                         </CardHeader>
-                        <CardContent className="text-sm">
-                            <DataList data={[
-                                { title: 'Appartement', value: resident.room },
-                                { title: 'Bâtiment', value: resident.building },
-                                { title: 'Facture', value: <Badge>{constraintes?.bill ?? 'À définir'}</Badge> },
-                                { title: 'Prélèvement', value: `Tous les ${constraintes?.debiting ?? '(à définir)'} du mois` },
-                                { title: 'Nombre de ménage', value: constraintes?.per_month ?? 'À définir' },
-                            ]} />
+
+                        <CardContent>
+                            <DataList
+                                data={[
+                                    {
+                                        title: "Appartement",
+                                        value: resident.room,
+                                    },
+                                    {
+                                        title: "Bâtiment",
+                                        value: resident.building,
+                                    },
+                                    {
+                                        title: "Facture",
+                                        value: constraintes?.bill ?? "À définir",
+                                    },
+                                    {
+                                        title: "Prélèvement",
+                                        value: `Tous les ${constraintes?.debiting ?? "(à définir)"
+                                            } du mois`,
+                                    },
+                                    {
+                                        title: "Ménages par mois",
+                                        value:
+                                            constraintes?.per_month ??
+                                            "À définir",
+                                    },
+                                ]}
+                            />
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Équipe d&apos;entretien</CardTitle>
+                        </CardHeader>
+
+                        <CardContent className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="flex size-10 items-center justify-center rounded-full bg-primary/10">
+                                    <Users className="size-5 text-primary" />
+                                </div>
+
+                                <div>
+                                    <p className="font-medium">
+                                        Agents affectés
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {new Set(
+                                            menages
+                                                .map((item) => item.agent_id)
+                                                .filter(Boolean),
+                                        ).size}{" "}
+                                        agent(s) dans l&apos;historique
+                                    </p>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
             </div>
-        </div>)
+        </div>
+    )
 }

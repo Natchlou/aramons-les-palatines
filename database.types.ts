@@ -14,33 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      agent: {
-        Row: {
-          created_at: string
-          id: number
-          maxSlotsPerDay: number | null
-          name: string | null
-          rotation_parity: string | null
-          working_days: Database["public"]["Enums"]["days"][] | null
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-          maxSlotsPerDay?: number | null
-          name?: string | null
-          rotation_parity?: string | null
-          working_days?: Database["public"]["Enums"]["days"][] | null
-        }
-        Update: {
-          created_at?: string
-          id?: number
-          maxSlotsPerDay?: number | null
-          name?: string | null
-          rotation_parity?: string | null
-          working_days?: Database["public"]["Enums"]["days"][] | null
-        }
-        Relationships: []
-      }
       agent_absences: {
         Row: {
           agent_id: number | null
@@ -74,10 +47,37 @@ export type Database = {
             foreignKeyName: "agent_absences_agent_id_fkey"
             columns: ["agent_id"]
             isOneToOne: false
-            referencedRelation: "agent"
+            referencedRelation: "agents"
             referencedColumns: ["id"]
           },
         ]
+      }
+      agents: {
+        Row: {
+          created_at: string
+          id: number
+          maxSlotsPerDay: number | null
+          name: string | null
+          rotation_parity: string | null
+          working_days: Database["public"]["Enums"]["days"][] | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          maxSlotsPerDay?: number | null
+          name?: string | null
+          rotation_parity?: string | null
+          working_days?: Database["public"]["Enums"]["days"][] | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          maxSlotsPerDay?: number | null
+          name?: string | null
+          rotation_parity?: string | null
+          working_days?: Database["public"]["Enums"]["days"][] | null
+        }
+        Relationships: []
       }
       constraintes: {
         Row: {
@@ -195,41 +195,97 @@ export type Database = {
         }
         Relationships: []
       }
-      recents_menages: {
+      push_subscriptions: {
         Row: {
-          completed_at: string | null
           created_at: string
-          date: string | null
-          details: Json | null
-          heure: string | null
+          endpoint: string
           id: string
-          resident_id: string | null
-          started_at: string | null
-          statut: Database["public"]["Enums"]["status"] | null
+          subscription: Json
+          user_id: string
         }
         Insert: {
-          completed_at?: string | null
           created_at?: string
-          date?: string | null
-          details?: Json | null
-          heure?: string | null
+          endpoint: string
           id?: string
-          resident_id?: string | null
-          started_at?: string | null
-          statut?: Database["public"]["Enums"]["status"] | null
+          subscription: Json
+          user_id: string
         }
         Update: {
-          completed_at?: string | null
           created_at?: string
-          date?: string | null
-          details?: Json | null
-          heure?: string | null
+          endpoint?: string
           id?: string
-          resident_id?: string | null
+          subscription?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      recents_menages: {
+        Row: {
+          agent_id: number | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          completion_reason: string | null
+          created_at: string
+          date: string
+          details: Json
+          duration_minutes: number | null
+          heure: string
+          id: string
+          reprogrammed_from_id: string | null
+          resident_id: string
+          started_at: string | null
+          statut: Database["public"]["Enums"]["status"]
+        }
+        Insert: {
+          agent_id?: number | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          completion_reason?: string | null
+          created_at?: string
+          date?: string
+          details?: Json
+          duration_minutes?: number | null
+          heure: string
+          id?: string
+          reprogrammed_from_id?: string | null
+          resident_id: string
           started_at?: string | null
-          statut?: Database["public"]["Enums"]["status"] | null
+          statut?: Database["public"]["Enums"]["status"]
+        }
+        Update: {
+          agent_id?: number | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          completion_reason?: string | null
+          created_at?: string
+          date?: string
+          details?: Json
+          duration_minutes?: number | null
+          heure?: string
+          id?: string
+          reprogrammed_from_id?: string | null
+          resident_id?: string
+          started_at?: string | null
+          statut?: Database["public"]["Enums"]["status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "recents_menages_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recents_menages_reprogrammed_from_id_fkey"
+            columns: ["reprogrammed_from_id"]
+            isOneToOne: false
+            referencedRelation: "recents_menages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "recents_menages_resident_id_fkey"
             columns: ["resident_id"]
@@ -274,26 +330,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      validate_cleaning: {
-        Args: { p_menage_id: string }
-        Returns: {
-          completed_at: string | null
-          created_at: string
-          date: string | null
-          details: Json | null
-          heure: string | null
-          id: string
-          resident_id: string | null
-          started_at: string | null
-          statut: Database["public"]["Enums"]["status"] | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "recents_menages"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      [_ in never]: never
     }
     Enums: {
       days: "Lundi" | "Mardi" | "Mercredi" | "Jeudi" | "Vendredi"
@@ -317,7 +354,12 @@ export type Database = {
         | "16h00"
         | "16h30"
         | "17h00"
-      status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+      status:
+        | "PENDING"
+        | "IN_PROGRESS"
+        | "COMPLETED"
+        | "CANCELLED"
+        | "RESCHEDULED"
       type_bill: "mail" | "papier"
     }
     CompositeTypes: {
@@ -468,7 +510,13 @@ export const Constants = {
         "16h30",
         "17h00",
       ],
-      status: ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"],
+      status: [
+        "PENDING",
+        "IN_PROGRESS",
+        "COMPLETED",
+        "CANCELLED",
+        "RESCHEDULED",
+      ],
       type_bill: ["mail", "papier"],
     },
   },

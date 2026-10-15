@@ -19,15 +19,18 @@ import { AgentAbscencesSchema } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
 
-import SupabaseCrud from "@/lib/supabase-crud";
+import SupabaseCrud from "@/lib/supabase";
 import { Database } from "@/database.types";
+import { createClient } from "@/lib/client";
 
 type AgentAbsencesInsert =
   Database["public"]["Tables"]["agent_absences"]["Insert"];
 
 export default function AgentForm({agent_id}: {agent_id: number}) {
+  const supabase = createClient()
   const agentAbsencesService =
     new SupabaseCrud<AgentAbsencesInsert>(
+      supabase,
       "agent_absences",
     );
 

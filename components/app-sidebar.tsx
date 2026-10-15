@@ -13,7 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { FeatherIcon, UserIcon, BrushCleaningIcon, UtensilsIcon } from "lucide-react"
+import { FeatherIcon, UserIcon, BrushCleaningIcon, UtensilsIcon, DockIcon } from "lucide-react"
 import Link from "next/link"
 
 const data = {
@@ -23,6 +23,13 @@ const data = {
     avatar: "/default.png",
   },
   navMain: [
+    {
+      title: "Planning",
+      url: "/admin/planning",
+      icon: (
+        <DockIcon />
+      ),
+    },
     {
       title: "Résidents",
       url: "/admin/residents",
@@ -48,7 +55,7 @@ const data = {
 }
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

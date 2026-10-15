@@ -2,12 +2,14 @@ import { DataTable } from "@/components/data-table";
 
 import { columns } from "./columns";
 import { Database } from "@/database.types";
-import SupabaseCrud from "@/lib/supabase-crud";
+import SupabaseCrud from "@/lib/supabase";
+import { createClient } from "@/lib/client";
 
-type AgentRow = Database['public']['Tables']['agent']['Row'];
+type AgentRow = Database['public']['Tables']['agents']['Row'];
 
 export default async function AdminAgentsPage() {
-  const agentsService = new SupabaseCrud<AgentRow>('agent')
+  const supabase = createClient()
+  const agentsService = new SupabaseCrud<AgentRow>(supabase,'agents')
 
   const agents = await agentsService.getAll()
   const agentsData = agents.data as AgentRow[] | null | undefined

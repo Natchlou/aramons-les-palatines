@@ -18,14 +18,14 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import type { Database } from "@/database.types"
-import { createClient } from "@/lib/server"
-import SupabaseCrud from "@/lib/supabase-crud"
+import { createClient } from "@/lib/client"
+import SupabaseCrud from "@/lib/supabase"
 import { ArrowLeftIcon } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
-type AgentRow = Database["public"]["Tables"]["agent"]["Row"]
+type AgentRow = Database["public"]["Tables"]["agents"]["Row"]
 type AgentAbsencesRow = Database["public"]["Tables"]["agent_absences"]["Row"]
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
@@ -48,18 +48,14 @@ export default async function AdminAgentShow({
     params: Promise<{ id: string }>
 }) {
     const { id } = await params
+    const supabase = createClient()
 
-    const supabase = await createClient()
-
+    const agentsService = new SupabaseCrud<AgentRow>(supabase,"agents");
     const agentAbsencesService =
-        new SupabaseCrud<AgentAbsencesRow>("agent_absences")
+        new SupabaseCrud<AgentAbsencesRow>(supabase,"agent_absences")
 
     const [agentResult, absencesResult] = await Promise.all([
-        supabase
-            .from("agent")
-            .select("*")
-            .eq("id", id)
-            .single<AgentRow>(),
+        agentsService.getById(Number(id)),
 
         agentAbsencesService.getWithFilters({
             filters: [
@@ -70,23 +66,25 @@ export default async function AdminAgentShow({
                 },
             ],
             sort: [
-                { column: 'start_date'}
+                { column: 'start_date' }
             ]
         }),
     ])
-
-    const { data: agent, error: agentError } = agentResult
 
     const absences: AgentAbsencesRow[] = Array.isArray(absencesResult.data)
         ? absencesResult.data.flat()
         : []
 
-    if (agentError || absencesResult.error) {
+    const agent = Array.isArray(agentResult.data)
+        ? agentResult.data.flat().find((row) => row !== null) ?? null
+        : agentResult.data
+
+    if (agentResult.error || absencesResult.error) {
         return (
             <div className="flex flex-1 items-center justify-center">
                 <p className="text-destructive">
                     Une erreur est survenue :{" "}
-                    {agentError?.message || absencesResult.error?.message}
+                    {agentResult.error?.message || absencesResult.error?.message}
                 </p>
             </div>
         )
@@ -139,7 +137,7 @@ export default async function AdminAgentShow({
                         <CardTitle>Absences / Congés</CardTitle>
 
                         <CardAction>
-                            <AgentForm agent_id={agent.id}/>
+                            <AgentForm agent_id={agent.id} />
                         </CardAction>
                     </CardHeader>
 
@@ -212,7 +210,7 @@ export default async function AdminAgentShow({
                                     title: "Jours de travail",
                                     value: agent.working_days?.length ? (
                                         <span className="flex flex-wrap gap-1">
-                                            {agent.working_days.map((day) => (
+                                            {agent.working_days.map((day: string) => (
                                                 <Badge
                                                     variant="outline"
                                                     key={day}

@@ -2,14 +2,16 @@ import { DataTable } from "@/components/data-table";
 import { columns } from "./columns";
 import ResidentForm from "@/components/resident/form";
 import { Database } from "@/database.types";
-import SupabaseCrud from "@/lib/supabase-crud";
+import SupabaseCrud from "@/lib/supabase";
 import GenerateResidentReportPdf from "@/components/generate-resident-report-pdf";
+import { createClient } from "@/lib/client";
 
 type ResidentRow = Database['public']['Tables']['residents']['Row'];
 
 export default async function AdminResidentsPage() {
   const now = new Date()
-  const residentsService = new SupabaseCrud<ResidentRow>("residents")
+  const supabase = createClient()
+  const residentsService = new SupabaseCrud<ResidentRow>(supabase,"residents")
 
   const residents = await residentsService.getWithFilters({
     sort: [{ column: 'room' }]
