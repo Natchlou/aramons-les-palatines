@@ -607,7 +607,7 @@ export async function fetchAgentsFromSupabase(): Promise<Agent[]> {
 
   return (agentsRes.data ?? [])
     .filter((a) => !!a.name)
-    .map((a) => {
+    .map((a): Agent | null => {
       const config = getAgentConfig(a.name as string);
       if (!config) {
         console.warn(`[planning] Pas de template pour "${a.name}" — ignoré.`);
