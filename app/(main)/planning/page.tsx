@@ -1,124 +1,103 @@
-import GenerateResidentNotices from "@/components/generate-resident-notice-pdf"
-import { PlanningTabs } from "@/components/planning-tabs"
-import FormPlanning from "@/components/planning/form-planning"
-import { MonthlyScheduleResponse } from "@/lib/planningService"
+import SinglePlanningView, {
+    type AgentAbsence,
+    type Menage,
+} from "@/components/planning/single-planning"
+import { Database } from "@/database.types"
+import { createClient } from "@/lib/client"
+import { createClient as authClient } from "@/lib/server"
+import { inList, SupabaseCrud } from "@/lib/supabase"
+import { redirect } from "next/navigation"
 
-import { createClient } from "@/lib/server"
+type AgentRow = Database['public']['Tables']['agents']['Row']
+type RecentMenageRow = Database['public']['Tables']['recents_menages']['Row']
+type ResidentRow = Database['public']['Tables']['residents']['Row']
+type AgentAbsenceRow = Database['public']['Tables']['agent_absences']['Row']
 
-export default async function Test1Page() {
-  const supabase =
-    await createClient()
+export default async function PlanningPage() {
+    const supabase = createClient()
 
-  /* ------------------------------------------------------------------------ */
-  /* PLANNING                                                                 */
-  /* ------------------------------------------------------------------------ */
+    // 1. Auth : un seul await, client explicite.
+    const authSupabase = await authClient()
+    const {
+        data: { user },
+    } = await authSupabase.auth.getUser()
 
-  const {
-    data: PlanningRow,
-    error: planningError,
-  } =
-    await supabase
-      .from("planning")
-      .select("*")
-      .limit(1)
-      .single()
-
-  if (
-    planningError ||
-    !PlanningRow
-  ) {
-    console.error(
-      "Planning error:",
-      planningError,
-    )
-
-    return (
-      <main className="p-8">
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          Impossible de récupérer
-          le planning.
-        </div>
-      </main>
-    )
-  }
-  /* ------------------------------------------------------------------------ */
-  /* PARSING                                                                   */
-  /* ------------------------------------------------------------------------ */
-
-  // `data` doit être un objet avec un tableau `weeks` non vide
-  const rawData = PlanningRow.data
-
-  if (
-    !rawData ||
-    typeof rawData !== "object" ||
-    Array.isArray(rawData) ||
-    !Array.isArray((rawData as { weeks?: unknown }).weeks)
-  ) {
-    console.error("Format planning invalide:", rawData)
-
-    return (
-      <main className="p-8">
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          Le format des données du planning est invalide.
-        </div>
-      </main>
-    )
-  }
-
-  // On peut maintenant caster sans risque
-  const schedule = rawData as unknown as MonthlyScheduleResponse
-
-  const seen = new Set<string>()
-  const residentsInPlanning = []
-
-  for (const w of schedule.weeks) {
-    for (const d of w.days) {
-      for (const t of d.tasks) {
-        if (t.type !== "menage" || !t.room) continue
-        if (seen.has(t.room)) continue
-        seen.add(t.room)
-        residentsInPlanning.push({
-          id: t.room,
-          nom: t.resident ?? "—",
-          room: t.room,
-        })
-      }
+    if (!user) {
+        redirect("/auth/login")
     }
-  }
 
-  residentsInPlanning.sort((a, b) => a.nom.localeCompare(b.nom))
-  /* ------------------------------------------------------------------------ */
-  /* PAGE                                                                      */
-  /* ------------------------------------------------------------------------ */
+    // 2. Agent : pas de Promise.all pour une seule requête.
+    const agentService = new SupabaseCrud<AgentRow>(supabase, "agents")
+    const agentResult = await agentService.getFirst({
+        filters: [{ column: "user_id", operator: "eq", value: user.id }],
+    })
 
-  return (
-    <main className="mx-auto w-full max-w-400 space-y-10 p-6 lg:p-8">
-      <header className="border-b pb-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Administration</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">
-              Plannings ménage
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {schedule.title}
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <FormPlanning />
-            <GenerateResidentNotices
-              schedule={schedule}
-            />
-          </div>
+    // 3. Pas de page blanche : message lisible si l'utilisateur n'a pas
+    //    d'agent rattaché (ou redirection si vous préférez).
+    if (!agentResult.success || !agentResult.data) {
+        return (
+            <div className="p-4">
+                <h1 className="text-2xl">Aucun agent associé</h1>
+                <p className="text-sm text-muted-foreground">
+                    Votre compte n&apos;est rattaché à aucun agent.
+                    Contactez un administrateur.
+                </p>
+            </div>
+        )
+    }
+
+    const agent = agentResult.data
+
+    const menageService = new SupabaseCrud<RecentMenageRow>(supabase, "recents_menages")
+    const residentService = new SupabaseCrud<ResidentRow>(supabase, "residents")
+    const absenceService = new SupabaseCrud<AgentAbsenceRow>(supabase, "agent_absences")
+
+    const [menagesResult, absencesResult] = await Promise.all([
+        menageService.getAll({
+            filters: [{ column: "agent_id", operator: "eq", value: agent.id }],
+        }),
+        absenceService.getAll({
+            filters: [{ column: "agent_id", operator: "eq", value: agent.id }],
+        }),
+    ])
+
+    // `type` présent en base, fallback sur "menage" pour les anciennes lignes.
+    const menages: Menage[] = (menagesResult.data ?? []).map((m) => ({
+        ...m,
+        statut: m.statut as Menage["statut"],
+        type: m.type ?? "menage",
+        details: (m.details ?? {}) as Menage["details"],
+    }))
+
+    const absences: AgentAbsence[] = absencesResult.data ?? []
+
+    // Les tâches fixes ont `resident_id = null` → exclues du `in(...)`.
+    const residentIds = [
+        ...new Set(
+            menages
+                .map((m) => m.resident_id)
+                .filter((id): id is string => id !== null),
+        ),
+    ]
+
+    const residents = residentIds.length
+        ? (await residentService.getAll({
+              filters: [inList<ResidentRow>("id", residentIds)],
+          })).data ?? []
+        : []
+
+    return (
+        <div className="p-4">
+            <h1 className="text-2xl">Bonjour, {agent.name}</h1>
+            <p className="text-sm">Voici votre planning de la journée</p>
+            <div className="mt-4">
+                <SinglePlanningView
+                    menages={menages}
+                    residents={residents}
+                    absences={absences}
+                    todayIso={new Date().toISOString()}
+                />
+            </div>
         </div>
-      </header>
-
-      <PlanningTabs
-        schedule={schedule}
-        planningId={PlanningRow.id}
-        year={PlanningRow.year}
-        month={PlanningRow.month}
-      />
-    </main>
-  )
+    )
 }

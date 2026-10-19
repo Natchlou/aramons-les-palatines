@@ -59,6 +59,7 @@ export type Database = {
           maxSlotsPerDay: number | null
           name: string | null
           rotation_parity: string | null
+          user_id: string | null
           working_days: Database["public"]["Enums"]["days"][] | null
         }
         Insert: {
@@ -67,6 +68,7 @@ export type Database = {
           maxSlotsPerDay?: number | null
           name?: string | null
           rotation_parity?: string | null
+          user_id?: string | null
           working_days?: Database["public"]["Enums"]["days"][] | null
         }
         Update: {
@@ -75,6 +77,7 @@ export type Database = {
           maxSlotsPerDay?: number | null
           name?: string | null
           rotation_parity?: string | null
+          user_id?: string | null
           working_days?: Database["public"]["Enums"]["days"][] | null
         }
         Relationships: []
@@ -233,9 +236,10 @@ export type Database = {
           heure: string
           id: string
           reprogrammed_from_id: string | null
-          resident_id: string
+          resident_id: string | null
           started_at: string | null
           statut: Database["public"]["Enums"]["status"]
+          type: string
         }
         Insert: {
           agent_id?: number | null
@@ -250,9 +254,10 @@ export type Database = {
           heure: string
           id?: string
           reprogrammed_from_id?: string | null
-          resident_id: string
+          resident_id?: string | null
           started_at?: string | null
           statut?: Database["public"]["Enums"]["status"]
+          type?: string
         }
         Update: {
           agent_id?: number | null
@@ -267,9 +272,10 @@ export type Database = {
           heure?: string
           id?: string
           reprogrammed_from_id?: string | null
-          resident_id?: string
+          resident_id?: string | null
           started_at?: string | null
           statut?: Database["public"]["Enums"]["status"]
+          type?: string
         }
         Relationships: [
           {

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/server";
 
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import PushNotifications from "@/components/notifications/push-notifications";
+import { LogoutButton } from "@/components/logout-button";
 
 export default async function AccountPage() {
   const supabase = await createClient();
@@ -115,11 +115,7 @@ export default async function AccountPage() {
           </CardHeader>
 
           <CardContent>
-            <form action="/auth/signout" method="post">
-              <Button type="submit" variant="destructive">
-                Se déconnecter
-              </Button>
-            </form>
+            <LogoutButton />
           </CardContent>
         </Card>
       </div>

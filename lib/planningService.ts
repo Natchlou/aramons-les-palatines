@@ -20,6 +20,7 @@ export type DayName = "lundi" | "mardi" | "mercredi" | "jeudi" | "vendredi";
 export type SlotType =
   | "hall"
   | "menage"
+  | "navette"
   | "pause"
   | "plonge"
   | "lessives"
@@ -30,6 +31,8 @@ export interface TemplateSlot {
   type: SlotType;
   label?: string;
   building?: string;
+  /** Durée en minutes — si défini, prime sur le calcul par gap. */
+  duration?: number;
 }
 
 export type DayTemplate = TemplateSlot[];
@@ -44,53 +47,57 @@ export interface RotationRule {
 export interface AgentConfig {
   name: string;
   week: WeekTemplate;
-  rotation: RotationRule | null;
+  /**
+   * Règle de rotation optionnelle (semaines on/off).
+   * `null` / `undefined` = pas de rotation (agent travaille toutes les semaines).
+   */
+  rotation?: RotationRule | null;
 }
 
-const HALL_B1: TemplateSlot = { hour: "8h00", type: "hall", building: "1" };
-const HALL_B2: TemplateSlot = { hour: "8h00", type: "hall", building: "2" };
+const HALL_B1: TemplateSlot = { hour: "8h00", type: "hall", building: "1", duration: 30 };
+const HALL_B2: TemplateSlot = { hour: "8h00", type: "hall", building: "2", duration: 30 };
 
 const CHRISTELLE_FULL: DayTemplate = [
   HALL_B1,
   { hour: "8h30",  type: "menage" },
   { hour: "10h00", type: "menage" },
-  { hour: "11h30", type: "pause", label: "Pause repos" },
+  { hour: "11h30", type: "pause", label: "Pause repas", duration: 30 },
   { hour: "12h00", type: "menage" },
   { hour: "13h30", type: "menage" },
-  { hour: "15h00", type: "common", label: "Parties communes" },
+  { hour: "15h00", type: "common", label: "Parties communes", duration: 60 },
 ];
 
 const CHRISTELLE_MERCREDI: DayTemplate = [
   HALL_B1,
   { hour: "8h30",  type: "menage" },
   { hour: "10h00", type: "menage" },
+  // Marqueur de fin de journée → pas de durée.
   { hour: "11h30", type: "pause", label: "Fin 11h30" },
 ];
 
 const CHRISTELLE_JEUDI: DayTemplate = [
-  { hour: "7h45",  type: "hall", building: "1" },
+  { hour: "8h00",  type: "hall", building: "1", duration: 30 },
   { hour: "8h30",  type: "menage" },
   { hour: "10h00", type: "menage" },
-  { hour: "11h30", type: "pause", label: "Pause repos" },
+  { hour: "11h30", type: "pause", label: "Pause repas", duration: 30 },
   { hour: "12h00", type: "menage" },
   { hour: "13h30", type: "menage" },
-  { hour: "15h00", type: "common", label: "Parties communes" },
+  { hour: "15h00", type: "common", label: "Parties communes", duration: 60 },
 ];
 
 const CHRISTELLE_VENDREDI: DayTemplate = [
   HALL_B1,
   { hour: "8h30",  type: "menage" },
-  { hour: "10h00", type: "menage" },
-  { hour: "11h30", type: "lessives", label: "Lessives" },
+  { hour: "10h00", type: "navette", duration: 90 },
+  { hour: "11h30", type: "lessives", label: "Lessives", duration: 30 },
 ];
 
 const MANON_DAY: DayTemplate = [
   HALL_B2,
   { hour: "8h30",  type: "menage" },
-  { hour: "9h30",  type: "menage" },
   { hour: "10h00", type: "menage" },
-  { hour: "11h30", type: "pause", label: "Pause repos" },
-  { hour: "12h00", type: "plonge", label: "Plonge cuisine" },
+  { hour: "11h30", type: "pause", label: "Pause repas", duration: 30 },
+  { hour: "12h00", type: "plonge", label: "Plonge cuisine", duration: 120 },
   { hour: "14h00", type: "menage" },
 ];
 
@@ -104,7 +111,6 @@ export const AGENT_CONFIGS: Record<string, AgentConfig> = {
       jeudi:    CHRISTELLE_JEUDI,
       vendredi: CHRISTELLE_VENDREDI,
     },
-    rotation: null,
   },
   Manon: {
     name: "Manon",
@@ -112,7 +118,6 @@ export const AGENT_CONFIGS: Record<string, AgentConfig> = {
       lundi: MANON_DAY, mardi: MANON_DAY, mercredi: MANON_DAY,
       jeudi: MANON_DAY, vendredi: MANON_DAY,
     },
-    rotation: null,
   },
   Lana: {
     name: "Lana",
@@ -120,7 +125,6 @@ export const AGENT_CONFIGS: Record<string, AgentConfig> = {
       lundi: MANON_DAY, mardi: MANON_DAY, mercredi: MANON_DAY,
       jeudi: MANON_DAY, vendredi: MANON_DAY,
     },
-    rotation: { anchorWeek: 40, weeksOn: 2, weeksOff: 2 },
   },
 };
 
@@ -150,6 +154,7 @@ export function getDayTemplate(
 export function defaultLabelFor(type: SlotType): string {
   switch (type) {
     case "hall":     return "Hall";
+    case "navette":  return "Navette";
     case "pause":    return "Pause";
     case "plonge":   return "Plonge";
     case "lessives": return "Lessives";
@@ -176,11 +181,30 @@ export interface Resident {
   priority: number;
 }
 
+/**
+ * Plage d'absence d'un agent — source : table `agent_absences`.
+ * Bornes incluses, comparées en date-part (aligné avec le frontend).
+ */
+export interface AbsencePeriod {
+  /** "vacances" | "ecole" | "ferie" | … (string pour tolérer l'inconnu). */
+  type: string;
+  /** ISO datetime, ex. "2026-10-13 00:00:00". */
+  start_date: string;
+  /** ISO datetime, ex. "2026-10-20 00:00:00". */
+  end_date: string;
+  motif: string | null;
+}
+
 export interface Agent {
   id: number;
   name: string;
   isAbsent: boolean;
   config: AgentConfig;
+  /**
+   * Plages d'absence. Optionnel pour ne pas casser d'anciens call-sites ;
+   * `undefined` / `[]` = aucune absence.
+   */
+  absences?: AbsencePeriod[];
 }
 
 export interface Task {
@@ -190,6 +214,8 @@ export interface Task {
   building?: string;
   type: string;
   agent?: string;
+  /** Durée explicite en minutes (fixes uniquement, prime sur le gap). */
+  duration?: number;
 }
 
 export interface DayScheduleFormatted {
@@ -236,9 +262,7 @@ export interface AgentSlotStats {
   used: number;
   total: number;
   fillRate: number;
-  /** Cible équilibrée calculée au prorata de la demande. */
   target: number;
-  /** Écart : target - used. Positif = sous-utilisé, négatif = sur-utilisé. */
   gap: number;
 }
 
@@ -357,9 +381,17 @@ function hourToMin(h: string): number {
   return Number(m[1]) * 60 + Number(m[2]);
 }
 
+/** Convertit "8h00" (format template) → "08:00:00" (type `time` Postgres). */
+function hourToTimeString(h: string): string {
+  const m = h.match(/^(\d{1,2})h(\d{2})$/);
+  if (!m) return "00:00:00";
+  return `${m[1].padStart(2, "0")}:${m[2]}:00`;
+}
+
 function fixedTypeFromLabel(label: string): string {
   const l = label.toLowerCase();
   if (l.includes("hall")) return "hall";
+  if (l.includes("navette")) return "navette";
   if (l.includes("pause") || l.includes("fin")) return "pause";
   if (l.includes("plonge")) return "plonge";
   if (l.includes("lessives")) return "lessives";
@@ -367,12 +399,29 @@ function fixedTypeFromLabel(label: string): string {
   return "fixed";
 }
 
+/**
+ * Vrai si `dateObj` tombe dans l'une des plages d'absence de l'agent.
+ * Comparaison en date-part (`YYYY-MM-DD`), bornes incluses.
+ */
+function isAbsentOn(agent: Agent, dateObj: Date): boolean {
+  const list = agent.absences;
+  if (!list || list.length === 0) return false;
+  const iso = dayKey(dateObj);
+  return list.some((a) => {
+    const start = a.start_date.slice(0, 10);
+    const end = a.end_date.slice(0, 10);
+    return iso >= start && iso <= end;
+  });
+}
+
 function agentWorksOn(agent: Agent, dateObj: Date): boolean {
   if (agent.isAbsent) return false;
+  if (isAbsentOn(agent, dateObj)) return false;
+
   const isoDay = getISODay(dateObj);
   if (!getDayTemplate(agent.config, isoDay)) return false;
 
-  const rule = agent.config.rotation;
+  const rule = agent.config.rotation ?? null;
   if (rule) {
     const week = getISOWeek(dateObj);
     const cycle = rule.weeksOn + rule.weeksOff;
@@ -430,8 +479,25 @@ export async function fetchResidentsFromSupabase(): Promise<Resident[]> {
       ),
   ]);
 
-  if (residentsRes.error) throw residentsRes.error;
-  if (constraintsRes.error) console.error("Erreur contraintes :", constraintsRes.error);
+  if (residentsRes.error) {
+    const e = residentsRes.error;
+    console.error(
+      "[planning] Impossible de charger les résidents :",
+      `\n  code    : ${e.code ?? "?"}`,
+      `\n  message : ${e.message ?? "?"}`,
+      `\n  details : ${e.details ?? "—"}`,
+    );
+    throw residentsRes.error;
+  }
+  if (constraintsRes.error) {
+    const e = constraintsRes.error;
+    console.error(
+      "[planning] Impossible de charger les contraintes :",
+      `\n  code    : ${e.code ?? "?"}`,
+      `\n  message : ${e.message ?? "?"}`,
+      `\n  details : ${e.details ?? "—"}`,
+    );
+  }
 
   const byResident = new Map<string, Record<string, unknown>>();
   for (const c of constraintsRes.data ?? []) {
@@ -479,26 +545,81 @@ export async function fetchResidentsFromSupabase(): Promise<Resident[]> {
   return residents;
 }
 
-export async function fetchAgentsFromSupabase(): Promise<Agent[]> {
+/**
+ * Récupère toutes les absences et les regroupe par `agent_id`.
+ * Retourne une `Map` vide en cas d'erreur (le planning continue sans
+ * filtrage d'absence, ce qui est préférable à un crash).
+ */
+export async function fetchAgentAbsencesFromSupabase(): Promise<
+  Map<number, AbsencePeriod[]>
+> {
   const supabase = createClient();
   const { data, error } = await supabase
-    .from("agent")
-    .select("id, name, isAbsent");
+    .from("agent_absences")
+    .select("agent_id, type, start_date, end_date, motif");
 
   if (error) {
-    console.error("Erreur récupération agents :", error);
+    const e = error;
+    console.error(
+      "[planning] Impossible de charger les absences :",
+      `\n  code    : ${e.code ?? "?"}`,
+      `\n  message : ${e.message ?? "?"}`,
+      `\n  details : ${e.details ?? "—"}`,
+    );
+    return new Map();
+  }
+
+  const byAgent = new Map<number, AbsencePeriod[]>();
+  for (const row of data ?? []) {
+    if (row.agent_id == null) continue;
+    const period: AbsencePeriod = {
+      type: row.type ?? "absence",
+      start_date: String(row.start_date),
+      end_date: String(row.end_date),
+      motif: row.motif ?? null,
+    };
+    const list = byAgent.get(row.agent_id);
+    if (list) list.push(period);
+    else byAgent.set(row.agent_id, [period]);
+  }
+  return byAgent;
+}
+
+export async function fetchAgentsFromSupabase(): Promise<Agent[]> {
+  const supabase = createClient();
+
+  const [agentsRes, absencesByAgent] = await Promise.all([
+    supabase.from("agents").select("id, name"),
+    fetchAgentAbsencesFromSupabase(),
+  ]);
+
+  if (agentsRes.error) {
+    const e = agentsRes.error;
+    console.error(
+      "[planning] Impossible de charger les agents :",
+      `\n  code    : ${e.code ?? "?"}`,
+      `\n  message : ${e.message ?? "?"}`,
+      `\n  details : ${e.details ?? "—"}`,
+      `\n  hint    : ${e.hint ?? "—"}`,
+    );
     return [];
   }
 
-  return (data ?? [])
-    .filter((a) => !!a.name && !a.isAbsent)
+  return (agentsRes.data ?? [])
+    .filter((a) => !!a.name)
     .map((a) => {
       const config = getAgentConfig(a.name as string);
       if (!config) {
         console.warn(`[planning] Pas de template pour "${a.name}" — ignoré.`);
         return null;
       }
-      return { id: a.id, name: a.name as string, isAbsent: false, config };
+      return {
+        id: a.id,
+        name: a.name as string,
+        isAbsent: false,
+        config,
+        absences: absencesByAgent.get(a.id) ?? [],
+      };
     })
     .filter((a): a is Agent => a !== null);
 }
@@ -516,7 +637,10 @@ export async function fetchPreviousMonthAssignments(
     .from("recents_menages")
     .select("resident_id, date, residents:resident_id (room)")
     .gte("date", from)
-    .lte("date", to);
+    .lte("date", to)
+    // Exclure les tâches fixes (resident_id NULL) : elles ne participent pas
+    // à la mémoire des assignations mensuelles par résident.
+    .not("resident_id", "is", null);
 
   if (error) return new Map();
 
@@ -607,26 +731,34 @@ function fillMonthInstance(
   const dayRooms = new Map<string, Set<string>>();
   for (const day of workDays) dayRooms.set(dayKey(day), new Set());
 
-  // --- 2. CIBLES par agent (équilibrage) ---
-  // Distribution itérative : on attribue d'abord une part égale, plafonnée
-  // par la capacité de chaque agent, en commençant par les agents les plus
-  // capacitaires.
+  // --- 2. CIBLES par agent (équilibrage itératif) ---
   const agentNames = Object.keys(slotsByAgent);
   const totalDemand = residents.reduce((acc, r) => acc + r.nb, 0);
   const targets: Record<string, number> = {};
+  for (const name of agentNames) targets[name] = 0;
 
   const sortedByCapacity = [...agentNames].sort(
     (a, b) => slotsByAgent[b].total - slotsByAgent[a].total,
   );
-  let remaining = totalDemand;
-  let remainingAgents = agentNames.length;
 
-  for (const name of sortedByCapacity) {
-    const ideal = Math.ceil(remaining / remainingAgents);
-    const capped = Math.min(slotsByAgent[name].total, ideal);
-    targets[name] = capped;
-    remaining -= capped;
-    remainingAgents--;
+  let remaining = totalDemand;
+  let pending = [...sortedByCapacity];
+
+  while (remaining > 0 && pending.length > 0) {
+    const share = Math.ceil(remaining / pending.length);
+    const nextPending: string[] = [];
+
+    for (const name of pending) {
+      const room = slotsByAgent[name].total - targets[name];
+      if (room <= 0) continue;
+      const add = Math.min(share, room, remaining);
+      targets[name] += add;
+      remaining -= add;
+      if (targets[name] < slotsByAgent[name].total) nextPending.push(name);
+    }
+
+    if (nextPending.length === pending.length && remaining > 0) break;
+    pending = nextPending;
   }
 
   // --- 3. Cellules compatibles pour un résident ---
@@ -646,18 +778,43 @@ function fillMonthInstance(
     });
   }
 
-  // --- 4. Choix équilibré d'une cellule ---
-  function pickBalancedCell(candidates: Cell[]): Cell {
-    const scored = candidates.map((c) => ({
-      cell: c,
-      balance: (targets[c.agent] ?? 0) - slotsByAgent[c.agent].used,
-    }));
-    const maxBalance = Math.max(...scored.map((s) => s.balance));
-    const best = scored.filter((s) => s.balance === maxBalance);
+  /**
+   * Nombre de résidents encore en attente qui peuvent prétendre à ce
+   * créneau (mêmes jour/heure autorisés). Mesure la "rareté" du slot.
+   */
+  function cellRarity(cell: Cell, stillPending: Resident[]): number {
+    const iso = getISODay(cell.date);
+    let n = 0;
+    for (const r of stillPending) {
+      if (r.allowedDays.length > 0 && !r.allowedDays.includes(iso)) continue;
+      if (r.scheduleHours.length > 0 && !r.scheduleHours.includes(cell.hour)) continue;
+      n++;
+    }
+    return n;
+  }
+
+  // --- 4. Choix équilibré + rareté ---
+  function pickBalancedCell(
+    candidates: Cell[],
+    resident: Resident,
+    stillPending: Resident[],
+  ): Cell {
+    const constrained =
+      resident.scheduleHours.length > 0 || resident.allowedDays.length < 5;
+
+    const scored = candidates.map((c) => {
+      const balance = (targets[c.agent] ?? 0) - slotsByAgent[c.agent].used;
+      const rarity = cellRarity(c, stillPending);
+      const score = balance * 10 + (constrained ? rarity : -rarity);
+      return { cell: c, score };
+    });
+
+    const maxScore = Math.max(...scored.map((s) => s.score));
+    const best = scored.filter((s) => s.score === maxScore);
     return best[Math.floor(Math.random() * best.length)].cell;
   }
 
-  // --- 5. Tri initial : PRIORITÉ → flexibilité → nb ---
+  // --- 5. Tri initial ---
   const scored = residents.map((res) => ({
     res,
     flex: compatibleCells(res).length,
@@ -671,7 +828,7 @@ function fillMonthInstance(
     return b.res.nb - a.res.nb;
   });
 
-  // --- 6. Multi-passes avec re-tri dynamique ---
+  // --- 6. Multi-passes ---
   let passes = 0;
   let progress = true;
 
@@ -699,7 +856,6 @@ function fillMonthInstance(
         const candidates = compatibleCells(res);
         if (candidates.length === 0) break;
 
-        // Priorité : semaine où le résident n'est pas déjà placé
         let pool = candidates;
         if (res.nb <= NB_WEEKLY_LIMIT_THRESHOLD) {
           const preferred = candidates.filter(
@@ -708,8 +864,8 @@ function fillMonthInstance(
           if (preferred.length > 0) pool = preferred;
         }
 
-        // Choix équilibré par agent
-        const chosen = pickBalancedCell(pool);
+        const stillPending = residents.filter((r) => r.assigned < r.nb);
+        const chosen = pickBalancedCell(pool, res, stillPending);
 
         inst[chosen.agent][chosen.dk][chosen.hour] = res.nom;
         res.assigned++;
@@ -808,10 +964,22 @@ function instanceToSchedule(
 
     const tasks: Task[] = [];
     const seenFixed = new Set<string>();
+    const isoDay = getISODay(day);
 
     for (const agent of agents) {
       const row = inst[agent.name]?.[dk];
       if (!row) continue;
+
+      // Lookup des durées explicites depuis le template du jour.
+      const dayTpl = getDayTemplate(agent.config, isoDay);
+      const durationByHour = new Map<string, number>();
+      if (dayTpl) {
+        for (const slot of dayTpl) {
+          if (slot.duration != null) {
+            durationByHour.set(slot.hour, slot.duration);
+          }
+        }
+      }
 
       for (const [hour, val] of Object.entries(row)) {
         if (val === null) continue;
@@ -833,8 +1001,10 @@ function instanceToSchedule(
           tasks.push({
             time: hour,
             type: fixedTypeFromLabel(val),
-            resident: val,
+            resident: val, // label transporté ("Hall", "Navette", …)
             agent: agent.name,
+            // undefined si le slot n'a pas de durée explicite → gap fera le job
+            duration: durationByHour.get(hour),
           });
         }
       }
@@ -875,7 +1045,6 @@ function instanceToSchedule(
       ? activeAgents[0].name
       : `Équipe (${activeAgents.map((a) => a.name).join(", ")})`;
 
-  // --- Rapport ---
   const slotsByAgentReport: Record<string, AgentSlotStats> = {};
   for (const [name, { used, total }] of Object.entries(stats.slotsByAgent)) {
     const target = stats.targets[name] ?? 0;
@@ -986,6 +1155,10 @@ export function generateMonthlySchedule(
 // 11. FILTRAGE PAR AGENT
 // ============================================================================
 
+/**
+ * Ne garde que les jours où l'agent a au moins une tâche (ménage OU fixe),
+ * et filtre ses tâches.
+ */
 export function filterScheduleByAgent(
   schedule: MonthlyScheduleResponse,
   agentName: string,
@@ -996,15 +1169,10 @@ export function filterScheduleByAgent(
     const days: DayScheduleFormatted[] = [];
 
     for (const day of week.days) {
-      // L'agent a-t-il au moins un ménage ce jour-là ?
-      const hasMenage = day.tasks.some(
-        (t) => t.type === "menage" && t.agent === agentName,
-      );
-      if (!hasMenage) continue;
+      const hasAnyTask = day.tasks.some((t) => t.agent === agentName);
+      if (!hasAnyTask) continue;
 
-      // On garde : les ménages de l'agent ET ses tâches fixes
       const tasks = day.tasks.filter((t) => t.agent === agentName);
-
       days.push({ ...day, tasks });
     }
 
@@ -1021,7 +1189,7 @@ export function listAgentsInSchedule(
   for (const w of schedule.weeks) {
     for (const d of w.days) {
       for (const t of d.tasks) {
-        if (t.type === "menage" && t.agent) names.add(t.agent);
+        if (t.agent) names.add(t.agent);
       }
     }
   }
@@ -1032,7 +1200,16 @@ export function listAgentsInSchedule(
 // 12. AFFICHAGE DU RAPPORT
 // ============================================================================
 
-export function printReport(report: PlanningReport): void {
+export interface ReportContext {
+  year: number;
+  month: number;
+  agents: Agent[];
+}
+
+export function printReport(
+  report: PlanningReport,
+  context?: ReportContext,
+): void {
   const line = "═".repeat(66);
 
   console.log(`\n${line}`);
@@ -1047,7 +1224,6 @@ export function printReport(report: PlanningReport): void {
   const dIcon = dp === dt ? "✅" : dp / dt >= 0.9 ? "⚠️ " : "❌";
   console.log(`  ${dIcon} Ménages placés  : ${dp} / ${dt}  (${dpct}%)`);
 
-  // Capacité par agent + cible
   console.log(`\n  🧹 Capacité par agent (cible = quota équilibré) :`);
   for (const [name, { used, total, target, gap, fillRate }] of Object.entries(report.slotsByAgent)) {
     const bar = "█".repeat(Math.round(fillRate / 5)).padEnd(20, "░");
@@ -1064,7 +1240,37 @@ export function printReport(report: PlanningReport): void {
     console.log(`        ${gapLabel}`);
   }
 
-  // Priorités
+  if (context) {
+    const { year, month, agents } = context;
+    const first = `${year}-${String(month).padStart(2, "0")}-01`;
+    const last = format(new Date(year, month, 1), "yyyy-MM-dd");
+
+    const relevant = agents
+      .map((a) => ({
+        name: a.name,
+        periods: (a.absences ?? []).filter(
+          (p) =>
+            p.end_date.slice(0, 10) >= first &&
+            p.start_date.slice(0, 10) < last,
+        ),
+      }))
+      .filter((x) => x.periods.length > 0);
+
+    if (relevant.length > 0) {
+      console.log(`\n  🚫 Absences sur le mois :`);
+      for (const { name, periods } of relevant) {
+        for (const p of periods) {
+          const label = p.motif ? `${p.type} (${p.motif})` : p.type;
+          console.log(
+            `     • ${name.padEnd(12)} ${p.start_date.slice(0, 10)} → ${p.end_date.slice(0, 10)}  [${label}]`,
+          );
+        }
+      }
+    } else {
+      console.log(`\n  ✅ Aucune absence ce mois.`);
+    }
+  }
+
   if (report.byPriority.length > 0) {
     console.log(`\n  🎯 Placement par priorité (haut = plus contraint) :`);
     for (const { priority, count, placed } of report.byPriority) {
@@ -1078,7 +1284,6 @@ export function printReport(report: PlanningReport): void {
 
   console.log(`\n  🔄 Passes d'optimisation : ${report.passes}`);
 
-  // Sous-effectifs
   const partial = report.allResidents.filter((r) => !r.ok);
   if (partial.length > 0) {
     console.log(`\n  📋 ${partial.length} résident(s) en sous-effectif :\n`);
@@ -1110,8 +1315,331 @@ export function printReport(report: PlanningReport): void {
 }
 
 // ============================================================================
-// 13. PERSISTANCE SUPABASE
+// 13. PERSISTANCE — recents_menages (une ligne par tâche)
 // ============================================================================
+
+/** Types fixes autorisés par la contrainte CHECK de la table. */
+const FIXED_SLOT_TYPES = [
+  "hall", "navette", "pause", "plonge", "lessives", "common", "fixed",
+] as const;
+
+type FixedSlotType = typeof FIXED_SLOT_TYPES[number];
+
+function isFixedSlotType(type: string): type is FixedSlotType {
+  return (FIXED_SLOT_TYPES as readonly string[]).includes(type);
+}
+
+export interface SaveRecentsMenagesOptions {
+  /** Durée par défaut pour un slot sans successeur et sans durée explicite. Défaut : 90. */
+  defaultDurationMinutes?: number;
+  /** Bornes de durée pour le gap (ménages et fixes sans durée explicite). Défaut : [15, 180]. */
+  durationBounds?: [number, number];
+  /**
+   * Statuts préservés lors de la régénération.
+   * Défaut : [`COMPLETED`, `IN_PROGRESS`, `CANCELLED`, `RESCHEDULED`].
+   * Mettre `[]` pour tout remplacer (perte d'historique).
+   */
+  preserveStatuses?: string[];
+  /** Checklist par défaut injectée dans `details.columns` sur les ménages. Vide par défaut. */
+  defaultChecklist?: { title: string; items: string[] }[][];
+}
+
+export interface SaveRecentsMenagesResult {
+  inserted: number;
+  deleted: number;
+  skipped: { task: string; reason: string }[];
+  protectedSlots: number;
+  /** Détail : nb de ménages vs nb de tâches fixes insérés. */
+  breakdown: { menage: number; fixed: number };
+}
+
+/**
+ * Calcule une durée par tâche (ménages ET fixes SANS durée explicite) :
+ * écart au prochain slot du même agent, borné par `durationBounds`,
+ * `defaultDuration` pour le dernier slot de la journée.
+ *
+ * Les tâches fixes avec `task.duration` défini (ex. plonge 120, navette 90)
+ * ne passent pas par ce calcul — leur durée explicite est utilisée à l'insertion.
+ */
+function computeTaskDurations(
+  tasks: Task[],
+  defaultDuration: number,
+  bounds: [number, number],
+): Map<Task, number> {
+  const result = new Map<Task, number>();
+  const byAgent = new Map<string, Task[]>();
+  for (const t of tasks) {
+    if (!t.agent) continue;
+    const list = byAgent.get(t.agent);
+    if (list) list.push(t);
+    else byAgent.set(t.agent, [t]);
+  }
+
+  for (const list of byAgent.values()) {
+    for (let i = 0; i < list.length; i++) {
+      const t = list[i];
+      const current = hourToMin(t.time);
+      const next = list[i + 1];
+      const raw = next ? hourToMin(next.time) - current : defaultDuration;
+      result.set(t, Math.min(Math.max(raw, bounds[0]), bounds[1]));
+    }
+  }
+  return result;
+}
+
+/**
+ * Persiste un `MonthlyScheduleResponse` dans `recents_menages` :
+ *   - 1 ligne par ménage   (`type = 'menage'`, `resident_id` renseigné)
+ *   - 1 ligne par tâche fixe (`type = hall|navette|pause|plonge|lessives|common|fixed`,
+ *     `resident_id = NULL`, label dans `details.label`)
+ *
+ * Durées :
+ *   - ménages → gap au prochain slot du même agent (borné).
+ *   - tâches fixes → `task.duration` (durée explicite du template) si défini,
+ *     sinon gap calculé (borné).
+ *   - marqueurs "Fin XXh" → pas de durée.
+ *
+ * Idempotent : supprime les lignes de statut non préservé du mois pour les
+ * agents concernés, puis insère le nouveau planning. Les lignes préservées
+ * (`COMPLETED`, etc.) verrouillent leur créneau `(agent, date, heure)`.
+ */
+export async function saveMonthlyPlanningToRecentsMenages(
+  schedule: MonthlyScheduleResponse,
+  year: number,
+  month: number,
+  residents: Resident[],
+  agents: Agent[],
+  options: SaveRecentsMenagesOptions = {},
+): Promise<SaveRecentsMenagesResult> {
+  const {
+    defaultDurationMinutes = 90,
+    durationBounds = [15, 180],
+    preserveStatuses = ["COMPLETED", "IN_PROGRESS", "CANCELLED", "RESCHEDULED"],
+    defaultChecklist = [],
+  } = options;
+
+  const residentIdByNom = new Map(residents.map((r) => [r.nom, r.id]));
+  const agentIdByName = new Map(agents.map((a) => [a.name, a.id]));
+
+  type Row = {
+    resident_id: string | null;
+    agent_id: number;
+    date: string;
+    heure: string;
+    statut: "PENDING";
+    type: "menage" | FixedSlotType;
+    details: {
+      columns: unknown[];
+      residents: unknown[];
+      label?: string;
+    };
+    duration_minutes: number | null;
+  };
+
+  const rows: Row[] = [];
+  const skipped: { task: string; reason: string }[] = [];
+  const seen = new Set<string>();
+  const breakdown = { menage: 0, fixed: 0 };
+
+  for (const week of schedule.weeks) {
+    for (const day of week.days) {
+      const durations = computeTaskDurations(
+        day.tasks,
+        defaultDurationMinutes,
+        durationBounds,
+      );
+
+      for (const task of day.tasks) {
+        const label = `${day.isoDate} ${task.time}`;
+
+        // 1. Agent obligatoire
+        if (!task.agent) {
+          skipped.push({ task: label, reason: "agent manquant" });
+          continue;
+        }
+        const agentId = agentIdByName.get(task.agent);
+        if (agentId === undefined) {
+          skipped.push({ task: `${label} (${task.agent})`, reason: "agent introuvable" });
+          continue;
+        }
+
+        // 2. Dédoublonnage (agent, date, heure)
+        const heure = hourToTimeString(task.time);
+        const key = `${agentId}|${day.isoDate}|${heure}`;
+        if (seen.has(key)) {
+          skipped.push({ task: `${label} (${task.agent})`, reason: "doublon interne" });
+          continue;
+        }
+        seen.add(key);
+
+        // 3a. Ménage → resident_id renseigné
+        if (task.type === "menage") {
+          if (!task.resident) {
+            skipped.push({ task: label, reason: "résident manquant sur ménage" });
+            continue;
+          }
+          const residentId = residentIdByNom.get(task.resident);
+          if (!residentId) {
+            skipped.push({
+              task: `${label} (${task.resident})`,
+              reason: "résident introuvable",
+            });
+            continue;
+          }
+          rows.push({
+            resident_id: residentId,
+            agent_id: agentId,
+            date: day.isoDate,
+            heure,
+            statut: "PENDING",
+            type: "menage",
+            details: { columns: defaultChecklist, residents: [] },
+            duration_minutes: durations.get(task) ?? null,
+          });
+          breakdown.menage++;
+          continue;
+        }
+
+        // 3b. Tâche fixe → resident_id NULL
+        const safeType: FixedSlotType = isFixedSlotType(task.type) ? task.type : "fixed";
+
+        // Les "Fin XXh" sont des marqueurs de fin de service, pas des tâches
+        // chronométrées → on n'y attache pas de durée.
+        const isEndMarker =
+          safeType === "pause" && /^fin\b/i.test(task.resident ?? "");
+
+        // Priorité : durée explicite du template → gap calculé → null.
+        const duration = isEndMarker
+          ? null
+          : (task.duration ?? durations.get(task) ?? null);
+
+        rows.push({
+          resident_id: null,
+          agent_id: agentId,
+          date: day.isoDate,
+          heure,
+          statut: "PENDING",
+          type: safeType,
+          details: {
+            columns: [],
+            residents: [],
+            label: task.resident ?? undefined,
+          },
+          duration_minutes: duration,
+        });
+        breakdown.fixed++;
+      }
+    }
+  }
+
+  if (rows.length === 0) {
+    return { inserted: 0, deleted: 0, skipped, protectedSlots: 0, breakdown };
+  }
+
+  const supabase = createClient();
+  const firstDay = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = format(new Date(year, month, 0), "yyyy-MM-dd");
+  const agentIds = agents.map((a) => a.id);
+
+  if (agentIds.length === 0) {
+    return { inserted: 0, deleted: 0, skipped, protectedSlots: 0, breakdown };
+  }
+
+  // --- Lecture des créneaux préservés + suppression des PENDING ---
+  const preservedSelect = preserveStatuses.length > 0
+    ? supabase
+        .from("recents_menages")
+        .select("agent_id, date, heure")
+        .gte("date", firstDay)
+        .lte("date", lastDay)
+        .in("agent_id", agentIds)
+        .in("statut", preserveStatuses)
+    : Promise.resolve({
+        data: [] as { agent_id: number; date: string; heure: string }[],
+        error: null,
+      });
+
+  let deleteQuery = supabase
+    .from("recents_menages")
+    .delete({ count: "exact" })
+    .gte("date", firstDay)
+    .lte("date", lastDay)
+    .in("agent_id", agentIds);
+
+  if (preserveStatuses.length > 0) {
+    deleteQuery = deleteQuery.not(
+      "statut",
+      "in",
+      `(${preserveStatuses.join(",")})`,
+    );
+  }
+
+  const [preservedRes, deleteRes] = await Promise.all([
+    preservedSelect,
+    deleteQuery,
+  ]);
+
+  if (preservedRes.error) {
+    throw new Error(
+      `Lecture des créneaux préservés échouée : ${preservedRes.error.message} ` +
+      `(code ${preservedRes.error.code})`,
+    );
+  }
+  if (deleteRes.error) {
+    throw new Error(
+      `Suppression recents_menages échouée : ${deleteRes.error.message} ` +
+      `(code ${deleteRes.error.code})`,
+    );
+  }
+
+  const deleted = deleteRes.count ?? 0;
+
+  const protectedSlots = new Set<string>();
+  for (const row of preservedRes.data ?? []) {
+    protectedSlots.add(`${row.agent_id}|${row.date}|${row.heure}`);
+  }
+
+  const filteredRows = rows.filter((r) => {
+    const key = `${r.agent_id}|${r.date}|${r.heure}`;
+    if (protectedSlots.has(key)) {
+      skipped.push({
+        task: `${r.date} ${r.heure} (agent ${r.agent_id})`,
+        reason: "créneau verrouillé par un statut préservé",
+      });
+      return false;
+    }
+    return true;
+  });
+
+  // Recalcul du breakdown après filtrage préservé.
+  const finalBreakdown = { menage: 0, fixed: 0 };
+  for (const r of filteredRows) {
+    if (r.type === "menage") finalBreakdown.menage++;
+    else finalBreakdown.fixed++;
+  }
+
+  const BATCH = 500;
+  for (let i = 0; i < filteredRows.length; i += BATCH) {
+    const chunk = filteredRows.slice(i, i + BATCH);
+    const { error } = await supabase.from("recents_menages").insert(chunk);
+    if (error) {
+      throw new Error(
+        `Insert recents_menages échoué (batch ${Math.floor(i / BATCH) + 1}) : ` +
+        `${error.message} (code ${error.code})`,
+      );
+    }
+  }
+
+  return {
+    inserted: filteredRows.length,
+    deleted,
+    skipped,
+    protectedSlots: protectedSlots.size,
+    breakdown: finalBreakdown,
+  };
+}
+
+// ─── Snapshot JSON optionnel dans la table `planning` ──────────────────────
 
 export async function savePlanningToSupabase(
   schedule: MonthlyScheduleResponse,
@@ -1154,13 +1682,20 @@ export async function savePlanningToSupabase(
 export interface GeneratePlanningParams {
   year: number;
   month: number;
+  /** true = écrit dans recents_menages. Défaut : true. */
   save?: boolean;
+  /** true = écrit aussi un snapshot JSON dans planning. Défaut : false. */
+  savePlanningSnapshot?: boolean;
+  /** Options de persistance recents_menages (durée, statuts préservés…). */
+  saveOptions?: SaveRecentsMenagesOptions;
 }
 
 export async function generateAndSaveMonthlyPlanning({
   year,
   month,
   save = true,
+  savePlanningSnapshot = false,
+  saveOptions,
 }: GeneratePlanningParams): Promise<MonthlyScheduleResponse> {
   const [residents, agents, previous] = await Promise.all([
     fetchResidentsFromSupabase(),
@@ -1168,13 +1703,51 @@ export async function generateAndSaveMonthlyPlanning({
     fetchPreviousMonthAssignments(year, month),
   ]);
 
+  if (agents.length === 0) {
+    throw new Error(
+      "Aucun agent chargeable. Vérifiez les logs serveur " +
+      "(nom de colonne isAbsent, policies RLS, env vars Supabase).",
+    );
+  }
+
   const schedule = generateMonthlySchedule(residents, year, month, {
     agents,
     previousMonthAssignments: previous,
   });
 
-  printReport(schedule.report);
+  printReport(schedule.report, { year, month, agents });
 
-  if (save) await savePlanningToSupabase(schedule, year, month);
+  if (save) {
+    const result = await saveMonthlyPlanningToRecentsMenages(
+      schedule,
+      year,
+      month,
+      residents,
+      agents,
+      saveOptions,
+    );
+
+    console.log(
+      `\n  💾 recents_menages : ${result.inserted} ligne(s) insérée(s) ` +
+      `(${result.breakdown.menage} ménage(s) + ${result.breakdown.fixed} tâche(s) fixe(s)), ` +
+      `${result.deleted} ligne(s) supprimée(s), ` +
+      `${result.protectedSlots} créneau(x) préservé(s).`,
+    );
+    if (result.skipped.length > 0) {
+      console.warn(`  ⚠️  ${result.skipped.length} tâche(s) ignorée(s) :`);
+      for (const s of result.skipped.slice(0, 10)) {
+        console.warn(`     - ${s.task} → ${s.reason}`);
+      }
+      if (result.skipped.length > 10) {
+        console.warn(`     … et ${result.skipped.length - 10} autres.`);
+      }
+    }
+  }
+
+  if (savePlanningSnapshot) {
+    await savePlanningToSupabase(schedule, year, month);
+    console.log(`  💾 Snapshot JSON sauvegardé dans planning (${year}/${month}).`);
+  }
+
   return schedule;
 }
