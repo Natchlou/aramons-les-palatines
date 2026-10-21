@@ -236,7 +236,10 @@ export default async function AdminResidentShow({
 
                     <GenerateResidentReportPdf
                         residentIds={[uuid]}
-                        month={now.getMonth()}
+                        residentName={[resident.prefix, resident.last_name, resident.first_name]
+                            .filter(Boolean)
+                            .join(" ")}
+                        month={now.getMonth() + 1}
                         year={now.getFullYear()}
                     />
                 </div>

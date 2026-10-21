@@ -3,7 +3,8 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Analytics } from "@vercel/analytics/next"
-
+import SystemBanner from "@/components/8starlabs-ui/system-banner";
+import { GooeyToaster } from "@/components/ui/goey-toaster";
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 const geistSans = Geist({
@@ -46,7 +47,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full w-full flex flex-col">
         <Analytics />
+        <SystemBanner 
+          text="Vous êtes en mode développeur"
+          color="bg-orange-500"
+          size="sm"
+          show={process.env.NODE_ENV === "development"}
+        />
         {children}
+        <GooeyToaster position="top-right" showProgress closeButton="top-right" />
       </body>
     </html>
   );

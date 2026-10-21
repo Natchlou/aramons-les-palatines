@@ -5,6 +5,8 @@ import FormProviders from "../providers";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
+import { createClient } from "@/lib/server";
+import { toSidebarUser } from "@/lib/auth-user";
 
 
 export const metadata: Metadata = {
@@ -12,7 +14,11 @@ export const metadata: Metadata = {
   description: "Planning automatisé",
 };
 
-export default function AdminLayout({ children }: LayoutProps<"/">) {
+export default async function AdminLayout({ children }: LayoutProps<"/">) {
+
+  const supabase = await createClient()
+  const { data } = await supabase.auth.getUser()
+  const user = toSidebarUser(data.user)
   return (
     <>
       <Toaster />
@@ -26,7 +32,7 @@ export default function AdminLayout({ children }: LayoutProps<"/">) {
               } as React.CSSProperties
             }
           >
-            <AppSidebar variant="sidebar" collapsible="icon" />
+            <AppSidebar variant="sidebar" collapsible="icon" user={user}/>
             <SidebarInset>
               <SiteHeader />
               <div className="flex w-full flex-1 flex-col">

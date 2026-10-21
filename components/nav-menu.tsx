@@ -53,7 +53,7 @@ export const NavMenu = (
           <NavigationMenuLink
             className={`${navigationMenuTriggerStyle()} ${isVertical ? "w-full justify-start" : ""
               }`}
-            href="/admin/residents"
+            href="/admin/dashboard"
           >
             Administration
           </NavigationMenuLink>

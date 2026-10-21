@@ -8,8 +8,11 @@ import {
     ChevronLeft,
     ChevronRight,
     Clock,
+    PlayIcon,
 } from "lucide-react"
 import { Database } from "@/database.types"
+import { Button } from "../ui/button"
+import Link from "next/link"
 
 /* ------------------------------ Types API -------------------------------- */
 
@@ -109,8 +112,6 @@ function getAbsenceStyle(type: string | null): StatusStyle {
     return ABSENCE_STYLES[type as AbsenceType] ?? { ...FALLBACK_ABSENCE_STYLE, label: type }
 }
 
-const TASK_COLOR = "#7C3AED"
-const TASK_BACKGROUND = "#F5F3FF"
 const TASK_LABEL = "Ménage"
 
 /* -------- Couleurs par type de tâche (ménage + fixes) -------------------- */
@@ -118,24 +119,24 @@ const TASK_LABEL = "Ménage"
 type EntryStyle = { color: string; background: string }
 
 const ENTRY_STYLES: Record<string, EntryStyle> = {
-    menage:   { color: "#7C3AED", background: "#F5F3FF" }, // violet
-    hall:     { color: "#0369A1", background: "#F0F9FF" }, // bleu
-    navette:  { color: "#047857", background: "#ECFDF5" }, // vert
-    pause:    { color: "#6B7280", background: "#F9FAFB" }, // gris
-    plonge:   { color: "#0891B2", background: "#F0FDFA" }, // cyan
+    menage: { color: "#7C3AED", background: "#F5F3FF" }, // violet
+    hall: { color: "#0369A1", background: "#F0F9FF" }, // bleu
+    navette: { color: "#047857", background: "#ECFDF5" }, // vert
+    pause: { color: "#6B7280", background: "#F9FAFB" }, // gris
+    plonge: { color: "#0891B2", background: "#F0FDFA" }, // cyan
     lessives: { color: "#C2410C", background: "#FFF7ED" }, // orange
-    common:   { color: "#9333EA", background: "#FAF5FF" }, // violet vif
-    fixed:    { color: "#475569", background: "#F8FAFC" }, // ardoise
+    common: { color: "#9333EA", background: "#FAF5FF" }, // violet vif
+    fixed: { color: "#475569", background: "#F8FAFC" }, // ardoise
 }
 
 const FIXED_TYPE_LABELS: Record<string, string> = {
-    hall:     "Hall",
-    navette:  "Navette",
-    pause:    "Pause",
-    plonge:   "Plonge",
+    hall: "Hall",
+    navette: "Navette",
+    pause: "Pause",
+    plonge: "Plonge",
     lessives: "Lessives",
-    common:   "Parties communes",
-    fixed:    "Tâche fixe",
+    common: "Parties communes",
+    fixed: "Tâche fixe",
 }
 
 function isFixedType(type: string): boolean {
@@ -159,7 +160,7 @@ const GRID_HEIGHT = TOTAL_SLOTS * SLOT_HEIGHT
 
 /* ---------------------- Hydratation sans effet ---------------------------- */
 
-const emptySubscribe = () => () => {}
+const emptySubscribe = () => () => { }
 
 function useIsMounted() {
     return useSyncExternalStore(
@@ -630,7 +631,6 @@ export default function SinglePlanningView({
                                     : "Aucune tâche planifiée pour cette journée"}
                             </p>
                         )}
-
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                             {(Object.keys(STATUS_STYLES) as MenageStatut[])
                                 .filter((status) => statusCounts[status] > 0)
@@ -707,11 +707,11 @@ export default function SinglePlanningView({
                                             >
                                                 {getEntryTypeLabel(entry.type)}
                                             </span>
-                                            <StatusBadge status={entry.statut} />
+                                            {!isFixed && <StatusBadge status={entry.statut} />}
                                         </div>
 
                                         <p
-                                            className={`break-words mt-0.5 text-sm font-semibold text-slate-900 ${entry.statut === "CANCELLED"
+                                            className={`wrap-break-word mt-0.5 text-sm font-semibold text-slate-900 ${entry.statut === "CANCELLED"
                                                 ? "line-through"
                                                 : ""
                                                 }`}
@@ -845,10 +845,12 @@ export default function SinglePlanningView({
                                             >
                                                 {getEntryTypeLabel(entry.type)}
                                             </span>
-                                            <StatusBadge
-                                                status={entry.statut}
-                                                size={height >= SLOT_HEIGHT * 2 ? "sm" : "xs"}
-                                            />
+                                            {!isFixed && (
+                                                <StatusBadge
+                                                    status={entry.statut}
+                                                    size={height >= SLOT_HEIGHT * 2 ? "sm" : "xs"}
+                                                />
+                                            )}
                                         </div>
 
                                         <p
@@ -903,7 +905,7 @@ export default function SinglePlanningView({
 
                                     <h3
                                         id="menage-title"
-                                        className={`break-words text-lg font-semibold ${selectedMenage.statut === "CANCELLED"
+                                        className={`wrap-break-word text-lg font-semibold ${selectedMenage.statut === "CANCELLED"
                                             ? "line-through"
                                             : ""
                                             }`}
@@ -957,16 +959,16 @@ export default function SinglePlanningView({
                                 )}
 
                                 {!isFixedType(selectedMenage.type) &&
-                                 formatLocation(getResident(selectedMenage)) && (
-                                    <div className="flex justify-between gap-4 px-3 py-2.5">
-                                        <dt className="text-muted-foreground">
-                                            Localisation
-                                        </dt>
-                                        <dd className="text-right font-medium">
-                                            {formatLocation(getResident(selectedMenage))}
-                                        </dd>
-                                    </div>
-                                )}
+                                    formatLocation(getResident(selectedMenage)) && (
+                                        <div className="flex justify-between gap-4 px-3 py-2.5">
+                                            <dt className="text-muted-foreground">
+                                                Localisation
+                                            </dt>
+                                            <dd className="text-right font-medium">
+                                                {formatLocation(getResident(selectedMenage))}
+                                            </dd>
+                                        </div>
+                                    )}
 
                                 {selectedMenage.started_at && (
                                     <div className="flex justify-between gap-4 px-3 py-2.5">
@@ -997,7 +999,7 @@ export default function SinglePlanningView({
                                         <dt className="text-muted-foreground">
                                             Motif d&apos;annulation
                                         </dt>
-                                        <dd className="mt-1 break-words text-sm">
+                                        <dd className="mt-1 wrap-break-word text-sm">
                                             {selectedMenage.cancellation_reason}
                                         </dd>
                                     </div>
@@ -1008,7 +1010,7 @@ export default function SinglePlanningView({
                                         <dt className="text-muted-foreground">
                                             Commentaire de clôture
                                         </dt>
-                                        <dd className="mt-1 break-words text-sm">
+                                        <dd className="mt-1 wrap-break-word text-sm">
                                             {selectedMenage.completion_reason}
                                         </dd>
                                     </div>
@@ -1023,6 +1025,8 @@ export default function SinglePlanningView({
                                     </div>
                                 )}
                             </dl>
+
+                            {selectedMenage.type === 'menage' && <Button className='w-full mt-4'><Link href={`/menage/${selectedMenage.id}`} className="flex items-center gap-2"><PlayIcon />Démarrer le ménage</Link></Button>}
 
                             {getChecklistSections(selectedMenage).length > 0 && (
                                 <div className="mt-4 rounded-lg border p-3">

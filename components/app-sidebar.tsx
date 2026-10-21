@@ -1,6 +1,15 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
+import {
+  FeatherIcon,
+  UserIcon,
+  BrushCleaningIcon,
+  UtensilsIcon,
+  DockIcon,
+  LayoutDashboardIcon,
+} from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -13,47 +22,21 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { FeatherIcon, UserIcon, BrushCleaningIcon, UtensilsIcon, DockIcon } from "lucide-react"
-import Link from "next/link"
+import type { SidebarUser } from "@/lib/auth-user"
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/default.png",
-  },
-  navMain: [
-    {
-      title: "Planning",
-      url: "/admin/planning",
-      icon: (
-        <DockIcon />
-      ),
-    },
-    {
-      title: "Résidents",
-      url: "/admin/residents",
-      icon: (
-        <UserIcon />
-      ),
-    },
-    {
-      title: "Agent d'entretien",
-      url: "/admin/agents",
-      icon: (
-        <BrushCleaningIcon />
-      ),
-    },
-    {
-      title: 'Restaurant',
-      url: "/admin/restaurant",
-      icon: (
-        <UtensilsIcon />
-      )
-    }
-  ],
+const navMain = [
+  { title: "Tableau de bord", url: "/admin",              icon: <LayoutDashboardIcon /> },
+  { title: "Planning",        url: "/admin/planning",     icon: <DockIcon /> },
+  { title: "Résidents",       url: "/admin/residents",    icon: <UserIcon /> },
+  { title: "Agent d'entretien", url: "/admin/agents",     icon: <BrushCleaningIcon /> },
+  { title: "Restaurant",      url: "/admin/restaurant",   icon: <UtensilsIcon /> },
+]
+
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  user: SidebarUser
 }
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+
+export function AppSidebar({ user, ...props }: AppSidebarProps) {
   return (
     <Sidebar {...props}>
       <SidebarHeader>
@@ -69,11 +52,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={navMain} />
       </SidebarContent>
+
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   )
